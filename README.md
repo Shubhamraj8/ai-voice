@@ -33,7 +33,12 @@ From the repository root:
 ```bash
 pnpm install
 pnpm --filter @ai-voice/api run install:python
+cp .env.example .env
+# Add Supabase credentials, then:
+pnpm --filter @ai-voice/db run migrate:up
 ```
+
+See `packages/db/README.md` for Supabase project setup steps.
 
 Or use the combined setup script:
 

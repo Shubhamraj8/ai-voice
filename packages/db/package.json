@@ -2,7 +2,15 @@
   "name": "@ai-voice/db",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "migrate": "echo \"Migrations will be added in ticket 1.03\""
+    "migrate:up": "node scripts/migrate.mjs up",
+    "migrate:down": "node scripts/migrate.mjs down",
+    "migrate:status": "node scripts/migrate.mjs status",
+    "migrate:reset": "node scripts/migrate.mjs reset"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "postgres": "^3.4.5"
   }
 }

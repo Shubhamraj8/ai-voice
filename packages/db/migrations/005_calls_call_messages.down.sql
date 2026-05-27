@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS call_messages;
+DROP TABLE IF EXISTS calls;
