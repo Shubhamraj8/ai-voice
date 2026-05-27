@@ -10,6 +10,9 @@
     "format:check": "pnpm --filter @ai-voice/web run format:check && pnpm --filter @ai-voice/api run format:check",
     "typecheck": "pnpm --filter @ai-voice/web run typecheck && pnpm --filter @ai-voice/shared run typecheck",
     "validate": "pnpm lint && pnpm typecheck && pnpm format:check",
+    "migrate:up": "pnpm --filter @ai-voice/db run migrate:up",
+    "migrate:down": "pnpm --filter @ai-voice/db run migrate:down",
+    "migrate:status": "pnpm --filter @ai-voice/db run migrate:status",
     "prepare": "husky"
   },
   "devDependencies": {
