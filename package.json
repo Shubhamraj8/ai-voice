@@ -1,0 +1,36 @@
+{
+  "name": "ai-voice",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c blue,green \"pnpm --filter @ai-voice/web dev\" \"pnpm --filter @ai-voice/api dev\"",
+    "setup": "pnpm install && pnpm --filter @ai-voice/api run install:python",
+    "lint": "pnpm --filter @ai-voice/web run lint && pnpm --filter @ai-voice/api run lint",
+    "format": "pnpm --filter @ai-voice/web run format && pnpm --filter @ai-voice/api run format",
+    "format:check": "pnpm --filter @ai-voice/web run format:check && pnpm --filter @ai-voice/api run format:check",
+    "typecheck": "pnpm --filter @ai-voice/web run typecheck && pnpm --filter @ai-voice/shared run typecheck",
+    "validate": "pnpm lint && pnpm typecheck && pnpm format:check",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2"
+  },
+  "lint-staged": {
+    "apps/web/**/*.{js,jsx,ts,tsx,css,md,json}": [
+      "prettier --write"
+    ],
+    "packages/shared/**/*.{ts,json,md}": [
+      "prettier --write"
+    ],
+    "apps/api/**/*.py": [
+      "python -m ruff check --fix",
+      "python -m black"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+[project]
+name = "ai-voice-api"
+version = "0.1.0"
+description = "FastAPI backend for AI Voice"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]

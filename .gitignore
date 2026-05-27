@@ -25,6 +25,8 @@ out/
 dist/
 coverage/
 .turbo/
+.vercel/
+*.tsbuildinfo
 
 # Python / backend
 __pycache__/
@@ -40,3 +42,10 @@ env/
 build/
 tmp/
 temp/
+
+# Python packaging
+*.egg-info/
+.eggs/
+
+# pnpm
+.pnpm-store/
