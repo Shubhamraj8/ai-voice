@@ -13,6 +13,7 @@
     "migrate:up": "pnpm --filter @ai-voice/db run migrate:up",
     "migrate:down": "pnpm --filter @ai-voice/db run migrate:down",
     "migrate:status": "pnpm --filter @ai-voice/db run migrate:status",
+    "test:rls": "pnpm --filter @ai-voice/db run test:rls",
     "prepare": "husky"
   },
   "devDependencies": {
