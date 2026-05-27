@@ -7,7 +7,8 @@
     "migrate:up": "node scripts/migrate.mjs up",
     "migrate:down": "node scripts/migrate.mjs down",
     "migrate:status": "node scripts/migrate.mjs status",
-    "migrate:reset": "node scripts/migrate.mjs reset"
+    "migrate:reset": "node scripts/migrate.mjs reset",
+    "test:rls": "python -m pytest tests/test_rls_isolation.py"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

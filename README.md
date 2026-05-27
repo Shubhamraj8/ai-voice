@@ -75,6 +75,13 @@ Or run everything together:
 pnpm validate
 ```
 
+After migration `006` and `.env` are configured, run the cross-tenant RLS smoke test:
+
+```bash
+python -m pip install -r packages/db/requirements-test.txt
+pnpm test:rls
+```
+
 A Husky pre-commit hook runs `lint-staged` and `typecheck` before each commit.
 
 ## Contributing
