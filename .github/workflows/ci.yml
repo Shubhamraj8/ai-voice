@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web lint and typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm --filter @ai-voice/web run lint
+
+      - name: Prettier
+        run: pnpm --filter @ai-voice/web run format:check
+
+      - name: Typecheck web
+        run: pnpm --filter @ai-voice/web run typecheck
+
+      - name: Typecheck shared
+        run: pnpm --filter @ai-voice/shared run typecheck
+
+  api:
+    name: API lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install -r apps/api/requirements-dev.txt
+
+      - name: Ruff
+        run: python -m ruff check apps/api/app
+
+      - name: Black
+        run: python -m black --check apps/api/app
