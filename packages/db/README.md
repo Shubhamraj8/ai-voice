@@ -60,7 +60,7 @@ pnpm --filter @ai-voice/db run migrate:status
 pnpm --filter @ai-voice/db run migrate:up
 ```
 
-Expected output: migrations `001` through `005` show as **applied**.
+Expected output: migrations `001` through `006` show as **applied**.
 
 ### 6. Verify in Supabase
 
@@ -94,7 +94,7 @@ After `migrate:up`, compare local migration state with the remote DB:
 pnpm --filter @ai-voice/db run migrate:status
 ```
 
-All five migrations should be **applied**. If you re-run `migrate:up`, it should print `No pending migrations.`
+All six migrations should be **applied**. If you re-run `migrate:up`, it should print `No pending migrations.`
 
 To test rollback and re-apply:
 
@@ -118,8 +118,64 @@ pnpm --filter @ai-voice/db run migrate:reset
 | `003_tenant_users_internal_users` | `tenant_users`, `internal_users` |
 | `004_agents_audit_log` | `agents`, `audit_log` |
 | `005_calls_call_messages` | `calls`, `call_messages` |
+| `006_rls_policies` | RLS + `current_tenant_id()` |
 
-RLS policies are **not** part of 1.03 (later tickets).
+## Row Level Security (ticket 1.04)
+
+Migration `006_rls_policies` enables RLS on all tenant-scoped tables plus membership tables.
+
+### Helpers
+
+- `user_tenant_ids()` — `SECURITY DEFINER` set of tenant IDs for `auth.uid()` (used in policies to avoid RLS recursion).
+- `is_internal_user()` — `SECURITY DEFINER` boolean for internal admin membership.
+- `current_tenant_id()` — first `tenant_users.tenant_id` for `auth.uid()` (convenience for app code).
+
+### Policy pattern
+
+Each data table has two policies for the `authenticated` role:
+
+| Policy | Who | Rule |
+|--------|-----|------|
+| `tenant_isolation` | Tenant users | Row `tenant_id` in `user_tenant_ids()` (or tenant id in that set for `tenants`) |
+| `internal_full_access` | Internal admins | `is_internal_user()` |
+
+`tenant_users` uses `user_id = auth.uid()` (avoids self-referential recursion). `internal_users` combines self-read and internal full-access policies.
+
+`audit_log` tenant policy additionally requires `tenant_id IS NOT NULL` so tenant users do not see global audit rows.
+
+### Re-apply safely
+
+Policies use `DROP POLICY IF EXISTS` before `CREATE POLICY`, so `migrate:up` is idempotent for `006`.
+
+## Cross-tenant RLS test (ticket 1.05)
+
+Verifies tenant A cannot read or mutate tenant B data via the Supabase API (real JWT + RLS).
+
+### Prerequisites
+
+- `.env` at repo root with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- Migration `006` applied: `pnpm migrate:up`
+- Python 3.11+ with pip
+
+### Run locally
+
+```bash
+python -m pip install -r packages/db/requirements-test.txt
+pnpm test:rls
+```
+
+The suite seeds two tenants, runs SELECT / INSERT / UPDATE / DELETE checks, and cleans up. It should finish in under 10 seconds.
+
+### CI
+
+Workflow job `db-rls` runs on every PR when these GitHub Actions secrets are set:
+
+- `DATABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+If secrets are missing, the job is skipped with a notice (web/api jobs still run).
 
 ## Troubleshooting
 
