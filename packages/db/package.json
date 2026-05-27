@@ -1,0 +1,8 @@
+{
+  "name": "@ai-voice/db",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "migrate": "echo \"Migrations will be added in ticket 1.03\""
+  }
+}
