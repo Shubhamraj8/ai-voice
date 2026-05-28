@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ export default async function PortalLayout({ children }: { children: React.React
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirectToLogin("/portal");
   }
 
   const { data: tenantUser } = await supabase
@@ -25,7 +25,7 @@ export default async function PortalLayout({ children }: { children: React.React
     .maybeSingle();
 
   if (!tenantUser) {
-    redirect("/login");
+    redirectToLogin("/portal");
   }
 
   return (

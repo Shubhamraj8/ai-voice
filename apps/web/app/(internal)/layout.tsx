@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirectToLogin("/internal");
   }
 
   const { data: internalUser } = await supabase
@@ -24,7 +24,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
     .maybeSingle();
 
   if (!internalUser) {
-    redirect("/login");
+    redirectToLogin("/internal");
   }
 
   return (
