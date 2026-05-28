@@ -60,7 +60,7 @@ pnpm --filter @ai-voice/db run migrate:status
 pnpm --filter @ai-voice/db run migrate:up
 ```
 
-Expected output: migrations `001` through `006` show as **applied**.
+Expected output: migrations `001` through `007` show as **applied**.
 
 ### 6. Verify in Supabase
 
@@ -94,7 +94,7 @@ After `migrate:up`, compare local migration state with the remote DB:
 pnpm --filter @ai-voice/db run migrate:status
 ```
 
-All six migrations should be **applied**. If you re-run `migrate:up`, it should print `No pending migrations.`
+All seven migrations should be **applied**. If you re-run `migrate:up`, it should print `No pending migrations.`
 
 To test rollback and re-apply:
 
@@ -119,6 +119,25 @@ pnpm --filter @ai-voice/db run migrate:reset
 | `004_agents_audit_log` | `agents`, `audit_log` |
 | `005_calls_call_messages` | `calls`, `call_messages` |
 | `006_rls_policies` | RLS + `current_tenant_id()` |
+| `007_signup_creates_tenant` | `handle_new_user()` trigger on `auth.users` |
+
+## Signup tenant provisioning (ticket 1.09)
+
+After migration `007`, every new row in `auth.users` (email signup or admin-created user) automatically:
+
+1. Creates one `tenants` row (`market = india_english`, `language = en`, India English `provider_config`)
+2. Links the user in `tenant_users` with role `owner`
+
+The trigger is idempotent: if `tenant_users` already exists for that `user_id`, no second tenant is created.
+
+Verify:
+
+```bash
+pnpm migrate:up
+pnpm --filter @ai-voice/db run test:signup-tenant
+```
+
+Manual check: sign up at `/signup`, then confirm in Supabase **Table Editor** → `tenants` + `tenant_users` (no manual SQL seed needed for portal access).
 
 ## Row Level Security (ticket 1.04)
 
