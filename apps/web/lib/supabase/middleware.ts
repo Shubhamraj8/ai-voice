@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { buildLoginRedirectUrl } from "@/lib/auth/login-url";
+import { isInternalPath, isPortalPath, isPublicPath } from "@/lib/auth/paths";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -30,16 +32,50 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublicRoute =
-    pathname === "/" ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/auth");
 
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+  if (isPublicPath(pathname)) {
+    return supabaseResponse;
+  }
+
+  if (isPortalPath(pathname)) {
+    if (!user) {
+      return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
+    }
+
+    const { data: tenantUser } = await supabase
+      .from("tenant_users")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!tenantUser) {
+      return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
+    }
+
+    return supabaseResponse;
+  }
+
+  if (isInternalPath(pathname)) {
+    if (!user) {
+      return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
+    }
+
+    const { data: internalUser } = await supabase
+      .from("internal_users")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!internalUser) {
+      return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
+    }
+
+    return supabaseResponse;
+  }
+
+  if (!user) {
+    return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
   }
 
   return supabaseResponse;

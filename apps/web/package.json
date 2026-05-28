@@ -9,7 +9,8 @@
     "lint": "next lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:guards": "npx tsx --test lib/auth/safe-redirect.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
