@@ -8,7 +8,8 @@
     "migrate:down": "node scripts/migrate.mjs down",
     "migrate:status": "node scripts/migrate.mjs status",
     "migrate:reset": "node scripts/migrate.mjs reset",
-    "test:rls": "python -m pytest tests/test_rls_isolation.py"
+    "test:rls": "python -m pytest tests/test_rls_isolation.py",
+    "test:signup-tenant": "python -m pytest tests/test_signup_creates_tenant.py"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
