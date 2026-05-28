@@ -14,6 +14,7 @@
     "migrate:down": "pnpm --filter @ai-voice/db run migrate:down",
     "migrate:status": "pnpm --filter @ai-voice/db run migrate:status",
     "test:rls": "pnpm --filter @ai-voice/db run test:rls",
+    "test:signup-tenant": "pnpm --filter @ai-voice/db run test:signup-tenant",
     "prepare": "husky"
   },
   "devDependencies": {
