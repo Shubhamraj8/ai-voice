@@ -14,11 +14,16 @@ from pydantic import BaseModel
 from app.config import get_settings
 from app.db.pool import get_pool
 from app.models.tenant import Tenant
+from app.models.user import TenantUserRole
 
 class User(BaseModel):
     id: UUID
     email: str | None = None
     role: str | None = None
+
+class TenantContext(BaseModel):
+    tenant: Tenant
+    role: TenantUserRole
 
 logger = structlog.get_logger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -121,12 +126,12 @@ async def get_current_user(
 async def get_current_tenant(
     user: Annotated[User, Depends(get_current_user)],
     pool=Depends(get_pool),
-) -> Tenant:
+) -> TenantContext:
     async with pool.acquire() as conn:
         # Load the first tenant this user has access to
         row = await conn.fetchrow(
             """
-            SELECT t.* FROM tenants t
+            SELECT t.*, tu.role as tu_role FROM tenants t
             JOIN tenant_users tu ON t.id = tu.tenant_id
             WHERE tu.user_id = $1
             LIMIT 1
@@ -143,4 +148,7 @@ async def get_current_tenant(
         if isinstance(row_dict.get("provider_config"), str):
             row_dict["provider_config"] = json.loads(row_dict["provider_config"])
             
-        return Tenant.model_validate(row_dict)
+        return TenantContext(
+            tenant=Tenant.model_validate(row_dict),
+            role=row_dict["tu_role"]
+        )
