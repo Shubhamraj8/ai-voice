@@ -1,21 +1,23 @@
 import uuid
-import pytest
-from fastapi.testclient import TestClient
+from datetime import datetime
 
 from app.main import app
-from app.middleware.auth import User, TenantContext, get_current_user, get_current_tenant
-from app.models.tenant import Tenant, TenantMarket, ProviderConfig, TenantOnboardingMode
+from app.middleware.auth import (
+    TenantContext,
+    User,
+    get_current_tenant,
+    get_current_user,
+)
+from app.models.tenant import ProviderConfig, Tenant, TenantMarket, TenantOnboardingMode
 from app.models.user import TenantUserRole
-from datetime import datetime
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
+
 def mock_get_current_user():
-    return User(
-        id=uuid.uuid4(),
-        email="test@example.com",
-        role="authenticated"
-    )
+    return User(id=uuid.uuid4(), email="test@example.com", role="authenticated")
+
 
 def mock_get_current_tenant():
     return TenantContext(
@@ -28,25 +30,25 @@ def mock_get_current_tenant():
             timezone="Asia/Kolkata",
             plan="starter",
             provider_config=ProviderConfig(
-                stt="cartesia",
-                tts="inworld",
-                llm="deepseek_native"
+                stt="cartesia", tts="inworld", llm="deepseek_native"
             ),
             onboarding_mode=TenantOnboardingMode.SELF_SERVE,
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         ),
-        role=TenantUserRole.OWNER
+        role=TenantUserRole.OWNER,
     )
+
 
 def test_me_unauthenticated():
     response = client.get("/me")
     assert response.status_code == 403 or response.status_code == 401
 
+
 def test_me_authenticated():
     app.dependency_overrides[get_current_user] = mock_get_current_user
     app.dependency_overrides[get_current_tenant] = mock_get_current_tenant
-    
+
     try:
         response = client.get("/me")
         assert response.status_code == 200
