@@ -25,6 +25,10 @@ class TenantContext(BaseModel):
     tenant: Tenant
     role: TenantUserRole
 
+class InternalUserContext(BaseModel):
+    user: User
+    internal_role: str
+
 logger = structlog.get_logger(__name__)
 security = HTTPBearer(auto_error=False)
 
@@ -152,3 +156,28 @@ async def get_current_tenant(
             tenant=Tenant.model_validate(row_dict),
             role=row_dict["tu_role"]
         )
+
+
+async def require_internal_user(
+    user: Annotated[User, Depends(get_current_user)],
+    pool=Depends(get_pool),
+) -> InternalUserContext:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT role FROM internal_users
+            WHERE user_id = $1
+            """,
+            user.id
+        )
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have internal access",
+            )
+            
+        return InternalUserContext(
+            user=user,
+            internal_role=row["role"]
+        )
+
