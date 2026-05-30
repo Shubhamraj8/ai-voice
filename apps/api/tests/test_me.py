@@ -42,7 +42,8 @@ def mock_get_current_tenant():
 
 def test_me_unauthenticated():
     response = client.get("/me")
-    assert response.status_code == 403 or response.status_code == 401
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "missing_token"
 
 
 def test_me_authenticated():

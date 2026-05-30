@@ -6,12 +6,13 @@ from uuid import UUID
 import httpx
 import jwt
 import structlog
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.config import get_settings
 from app.db.pool import get_pool
+from app.errors import api_error
 from app.models.tenant import Tenant
 from app.models.user import TenantUserRole
 
@@ -55,62 +56,56 @@ async def get_jwks() -> dict:
         logger.info("jwks_cache_miss", action="fetch_jwks")
         try:
             jwks = await fetch_jwks(settings.supabase_url)
-            # Store keys by kid for easy lookup
             keys = {key["kid"]: key for key in jwks.get("keys", [])}
             JWKS_CACHE["keys"] = keys
             JWKS_CACHE["expires_at"] = current_time + JWKS_CACHE_TTL
         except Exception as e:
             logger.error("jwks_fetch_failed", error=str(e))
             if not JWKS_CACHE["keys"]:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to fetch JWKS",
-                )
+                raise api_error(500, "jwks_unavailable", "Failed to fetch JWKS")
 
     return JWKS_CACHE["keys"]
+
+
+def _public_key_and_algorithms(key_data: dict) -> tuple[Any, list[str]]:
+    kty = key_data.get("kty")
+    if kty == "RSA":
+        return jwt.algorithms.RSAAlgorithm.from_jwk(key_data), ["RS256"]
+    if kty == "EC":
+        return jwt.algorithms.ECAlgorithm.from_jwk(key_data), ["ES256"]
+    raise api_error(401, "invalid_token", "Unsupported signing key")
 
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> User:
     if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing token",
-        )
+        raise api_error(401, "missing_token", "Missing token")
     token = credentials.credentials
     try:
         unverified_header = jwt.get_unverified_header(token)
         kid = unverified_header.get("kid")
         if not kid:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing kid",
-            )
+            raise api_error(401, "invalid_token", "Invalid token: missing kid")
 
         jwks = await get_jwks()
         key_data = jwks.get(kid)
         if not key_data:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: unknown kid",
-            )
+            raise api_error(401, "invalid_token", "Invalid token: unknown kid")
 
-        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
+        public_key, algorithms = _public_key_and_algorithms(key_data)
 
         decoded = jwt.decode(
             token,
             public_key,
-            algorithms=["RS256"],
+            algorithms=algorithms,
             audience="authenticated",
+            leeway=10,
         )
 
         user_id_str = decoded.get("sub")
         if not user_id_str:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing subject",
-            )
+            raise api_error(401, "invalid_token", "Invalid token: missing subject")
 
         return User(
             id=UUID(user_id_str),
@@ -119,15 +114,11 @@ async def get_current_user(
         )
 
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-        )
+        raise api_error(401, "token_expired", "Token has expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
+        raise api_error(401, "invalid_token", "Invalid token")
+    except jwt.PyJWTError:
+        raise api_error(401, "invalid_token", "Invalid token")
 
 
 async def get_current_tenant(
@@ -135,7 +126,6 @@ async def get_current_tenant(
     pool=Depends(get_pool),
 ) -> TenantContext:
     async with pool.acquire() as conn:
-        # Load the first tenant this user has access to
         row = await conn.fetchrow(
             """
             SELECT t.*, tu.role as tu_role FROM tenants t
@@ -146,17 +136,15 @@ async def get_current_tenant(
             user.id,
         )
         if not row:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User does not belong to any tenant",
-            )
+            raise api_error(403, "no_tenant", "User does not belong to any tenant")
 
         row_dict = dict(row)
         if isinstance(row_dict.get("provider_config"), str):
             row_dict["provider_config"] = json.loads(row_dict["provider_config"])
 
         return TenantContext(
-            tenant=Tenant.model_validate(row_dict), role=row_dict["tu_role"]
+            tenant=Tenant.model_validate(row_dict),
+            role=TenantUserRole(row_dict["tu_role"]),
         )
 
 
@@ -173,9 +161,6 @@ async def require_internal_user(
             user.id,
         )
         if not row:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User does not have internal access",
-            )
+            raise api_error(403, "not_internal", "User does not have internal access")
 
         return InternalUserContext(user=user, internal_role=row["role"])

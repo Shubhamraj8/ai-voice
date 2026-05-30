@@ -58,10 +58,18 @@ jobs:
         run: python -m pip install -r apps/api/requirements-dev.txt
 
       - name: Ruff
-        run: python -m ruff check apps/api/app
+        run: python -m ruff check apps/api/app apps/api/tests
 
       - name: Black
-        run: python -m black --check apps/api/app
+        run: python -m black --check apps/api/app apps/api/tests
+
+      - name: Pytest
+        working-directory: apps/api
+        run: python -m pytest tests -q
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
 
   db-rls:
     name: DB RLS isolation test
