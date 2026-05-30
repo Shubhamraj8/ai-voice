@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     )
 
     database_url: str
+    supabase_url: str
+    supabase_service_role_key: str
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
 
