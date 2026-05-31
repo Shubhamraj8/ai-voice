@@ -43,6 +43,16 @@ const config: Config = {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+        zerqo: {
+          orange: "#F04E00",
+          "orange-soft": "#FFF4EE",
+          black: "#0D0D0D",
+          ink: "#111111",
+          muted: "#6B6560",
+          faint: "#A09890",
+          line: "#E8E3DE",
+          cream: "#F8F5F1",
+        },
         sidebar: {
           DEFAULT: "var(--sidebar)",
           foreground: "var(--sidebar-foreground)",
