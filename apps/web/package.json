@@ -11,7 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test:guards": "npx tsx --test lib/auth/safe-redirect.test.mjs"
+    "test:guards": "npx tsx --test lib/auth/safe-redirect.test.mjs lib/auth/host-routing.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
