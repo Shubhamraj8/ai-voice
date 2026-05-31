@@ -1,0 +1,31 @@
+# Render Blueprint — ticket 1.17
+# https://render.com/docs/blueprint-spec
+#
+# Deploy: Render Dashboard → New → Blueprint → connect this repo → region Singapore.
+# Warm ping: configure cron-job.org per docs/deploy-render.md
+
+services:
+  - type: web
+    name: ai-voice-api
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: apps/api
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO

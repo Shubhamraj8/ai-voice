@@ -45,3 +45,14 @@ Errors: `{"detail": {"code": "...", "message": "..."}}`
 ```bash
 pnpm --filter @ai-voice/api run test
 ```
+
+## Production (Render)
+
+Deploy via the root [`render.yaml`](../../render.yaml) Blueprint (Singapore region, auto-deploy from `main`).
+
+Full setup, env vars, and cron-job.org warm-ping: **[docs/deploy-render.md](../../docs/deploy-render.md)**.
+
+```bash
+# Local production-style run (port 8000)
+pnpm --filter @ai-voice/api run start
+```
