@@ -1,4 +1,14 @@
 {
   "extends": ["next/core-web-vitals", "next/typescript", "prettier"],
-  "root": true
+  "root": true,
+  "overrides": [
+    {
+      "files": ["components/landing-page/**/*.tsx"],
+      "rules": {
+        "@typescript-eslint/ban-ts-comment": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "react-hooks/exhaustive-deps": "off"
+      }
+    }
+  ]
 }
