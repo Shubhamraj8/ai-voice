@@ -23,13 +23,13 @@ Deploy the FastAPI backend to [Render](https://render.com) on the **Singapore** 
 
 ### Environment variables (Render Dashboard)
 
-| Variable | Example / notes |
-|----------|-----------------|
-| `DATABASE_URL` | Supabase **direct** connection string (port 5432) |
-| `SUPABASE_URL` | `https://<project-ref>.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (secret) |
-| `CORS_ORIGINS` | `http://localhost:3000,https://your-app.vercel.app` |
-| `LOG_LEVEL` | `INFO` (default in blueprint) |
+| Variable                    | Example / notes                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`              | Supabase **direct** connection string (port 5432)                                                                        |
+| `SUPABASE_URL`              | `https://<project-ref>.supabase.co`                                                                                      |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (secret)                                                                                                |
+| `CORS_ORIGINS`              | `http://localhost:3000,https://yourdomain.ai,https://app.yourdomain.ai,https://www.yourdomain.ai` (+ Vercel preview URL) |
+| `LOG_LEVEL`                 | `INFO` (default in blueprint)                                                                                            |
 
 `PORT` is set automatically by Render — do not override.
 
@@ -95,22 +95,23 @@ Verify:
 
 ## 5. Wire the frontend
 
-Set in Vercel / `apps/web/.env.local` for production:
+Set in Vercel (see **[docs/deploy-vercel.md](../docs/deploy-vercel.md)** — ticket 1.18):
 
 ```env
-NEXT_PUBLIC_API_URL=https://<your-render-host>
+NEXT_PUBLIC_API_URL=https://api.yourdomain.ai
+# or https://ai-voice-ocy9.onrender.com before custom api. domain
 ```
 
-Add the Vercel URL to `CORS_ORIGINS` on Render.
+Add all Vercel production URLs to `CORS_ORIGINS` on Render.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `/health` returns 500 | Check `DATABASE_URL` (direct connection, not pooler on 6543 for asyncpg) |
-| Deploy fails build | Confirm `rootDir: apps/api` and Python 3.11 |
-| Service sleeps despite cron | Confirm cron URL is exact `/health`, schedule every 10 min, job enabled |
-| CORS errors from browser | Add frontend origin to `CORS_ORIGINS` on Render |
+| Symptom                     | Fix                                                                      |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `/health` returns 500       | Check `DATABASE_URL` (direct connection, not pooler on 6543 for asyncpg) |
+| Deploy fails build          | Confirm `rootDir: apps/api` and Python 3.11                              |
+| Service sleeps despite cron | Confirm cron URL is exact `/health`, schedule every 10 min, job enabled  |
+| CORS errors from browser    | Add frontend origin to `CORS_ORIGINS` on Render                          |
 
 ## Acceptance checklist (1.17)
 
