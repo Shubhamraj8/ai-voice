@@ -1,0 +1,87 @@
+/* ZERQO AI Voice Agent landing page — scoped to .landing-page-root */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300..900&family=Geist+Mono:wght@400..700&display=swap");
+
+.landing-page-root {
+  box-sizing: border-box;
+  font-family:
+    "Geist",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  background: #ffffff;
+  color: #1c1c1c;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+  min-height: 100vh;
+}
+
+.landing-page-root *,
+.landing-page-root *::before,
+.landing-page-root *::after {
+  box-sizing: border-box;
+}
+
+.landing-page-root img,
+.landing-page-root svg,
+.landing-page-root video {
+  max-width: 100%;
+}
+
+.landing-page-root h1,
+.landing-page-root h2,
+.landing-page-root h3,
+.landing-page-root .display {
+  font-family:
+    "Geist",
+    -apple-system,
+    sans-serif;
+}
+
+.landing-page-root .mono {
+  font-family: "Geist Mono", "JetBrains Mono", "Courier New", monospace;
+}
+
+.landing-page-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 0;
+}
+
+.landing-page-root ::-webkit-scrollbar-track {
+  background: #f4f0ec;
+}
+
+.landing-page-root ::-webkit-scrollbar-thumb {
+  background: #d0c9c2;
+  border-radius: 10px;
+}
+
+.landing-page-root .no-scrollbar::-webkit-scrollbar {
+  display: none;
+  height: 0;
+}
+
+.landing-page-root .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes landing-gradientBorder {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+
+.landing-page-root .grad-border {
+  background: linear-gradient(90deg, #f04e00, #ff8c42, #f04e00, #ff8c42, #f04e00);
+  background-size: 200% 100%;
+  animation: landing-gradientBorder 3s linear infinite;
+}
+
+.landing-page-root .hl {
+  color: #f04e00;
+}
