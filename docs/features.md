@@ -20,14 +20,14 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 - **Pipecat self-hosted** — Pipecat framework runs inside the FastAPI process, not as a separate managed service
 - **Provider abstraction layer** — Python protocols (`STTProvider`, `TTSProvider`, `LLMProvider`) with a registry and factory for runtime resolution
-- **CartesiaSTT** — streaming Ink-Whisper integration as the first concrete STT provider
-- **InworldTTS** — TTS-1.5 Mini integration as the first concrete TTS provider
+- **DeepgramSTT** — streaming Nova-3 Monolingual integration as the first concrete STT provider
+- **DeepgramTTS** — Aura-1 streaming synthesis as the first concrete TTS provider
 - **DeepSeekNativeLLM** — DeepSeek V4 Flash via the OpenAI-compatible native API
 - **Prompt caching** — system prompts stored verbatim so DeepSeek's 50× cache discount applies
 - **VAD (voice activity detection)** — Silero VAD via Pipecat default
 - **Turn detection** — waits for caller to finish before generating response
 - **Barge-in** — caller can interrupt agent mid-response
-- **Hardcoded default voice per agent** — single Inworld voice across v1, swap requires admin edit
+- **Hardcoded default voice per agent** — single Deepgram Aura voice across v1, swap requires admin edit
 - **Per-turn latency logging** — every turn writes a `latency_ms` to `call_messages` for performance forensics
 
 ### Business brain — system prompt
@@ -38,6 +38,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Custom rules editor** — free text field appended to the assembled prompt for tenant-specific dos and don'ts
 - **Prompt versioning** — every save creates a new `version` row; agents pinned to a specific version
 - **Version pinning** — agent does not pick up prompt changes unless explicitly upgraded
+- **Concise-response budget** — prompt enforces ≤25-word replies, which caps per-minute TTS cost since Aura is character-billed
 
 ### Business brain — knowledge base
 
@@ -74,7 +75,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Tenant list view** — searchable, paginated, sortable table of all tenants
 - **Tenant detail view** — header with business info, tabs for agents, calls, billing, audit log
 - **Tenant create form** — business name, vertical, timezone, country, plan selection
-- **Agent create and edit** — prompt textarea, tool whitelist checkboxes, voice dropdown, phone number purchase
+- **Agent create and edit** — prompt textarea, tool whitelist checkboxes, voice dropdown from the Deepgram Aura catalog, phone number purchase
 - **Knowledge upload for any tenant** — internal team uploads on behalf of customers in v1
 - **Call viewer with transcript and playback** — per-turn transcript display with embedded audio player
 - **Audit log writes** — every internal-user action writes a row with actor, action, and payload
@@ -118,6 +119,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Custom error categories** — voice_pipeline_error, llm_error, tool_error, integration_error, billing_error
 - **Structured logging** — structlog with JSON output for production log analysis
 - **Per-turn latency tracking** — `call_messages.latency_ms` enables p50, p95, p99 analysis per provider
+- **TTS chars-per-turn tracking** — recorded per turn as a cost-control signal since Aura is character-billed
 
 ### Compliance and security
 
@@ -133,7 +135,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 ### Language
 
-- **English (Indian accent)** — default language in v1, supported across Cartesia, Inworld, and DeepSeek
+- **English (Indian accent)** — default language in v1, supported across Deepgram Nova-3 / Aura and DeepSeek
 
 ---
 
@@ -145,7 +147,8 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 ### Voice orchestration
 
-- **Voice selection per agent UI** — dropdown in client portal showing Inworld voice catalog with previews
+- **Voice selection per agent UI** — dropdown in client portal showing the Deepgram Aura voice catalog with previews
+- **Aura-2 upgrade option** — clients can opt into the higher-quality Aura-2 voice at a different per-character rate
 - **Krisp noise cancellation** — Pipecat plugin reduces background noise in clinic and restaurant environments
 
 ### Business brain — system prompt
@@ -190,7 +193,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **OAuth (Google sign-in)** — Supabase Auth supports out of the box
 - **Knowledge management UI** — upload, list, delete documents from the client portal
 - **System prompt editor** — edit the assembled prompt directly with character count and version history
-- **Voice selection dropdown** — change Inworld voice with audio preview
+- **Voice selection dropdown** — change Deepgram Aura voice with audio preview
 - **Tool whitelist editor** — toggle which tools the agent has access to
 - **Phone number management** — buy additional numbers, release unused ones
 - **FAQ editor** — lightweight knowledge-base path for tenants who don't have PDFs
@@ -241,8 +244,9 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 ### Voice orchestration
 
-- **SarvamSTT provider** — concrete implementation for Sarvam streaming STT, supports Indian languages
+- **SarvamSTT provider** — concrete implementation for Sarvam streaming STT, supports Indian languages including native Hinglish code-switching
 - **SarvamTTS provider** — concrete implementation for Sarvam TTS with multiple Indian voices
+- **Deepgram Nova-3 Multilingual option** — alternative for tenants whose customers code-switch between English and Hindi but lean English-dominant
 
 ### Business brain — system prompt
 
@@ -321,8 +325,8 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 ### Voice orchestration
 
-- **Cartesia Enterprise (BAA)** — same code path as Cartesia provider, new provider name in registry
-- **Inworld Enterprise (BAA)** — same as above
+- **DeepgramSTTEnterprise (BAA)** — Nova-3 Monolingual on the Enterprise tier with a signed BAA, same code path as the standard provider with a new registry name
+- **DeepgramTTSEnterprise (BAA)** — Aura-1 on the Enterprise tier with a signed BAA — same single-vendor BAA covers both voice layers
 - **Together AI DeepSeek (BAA)** — new `TogetherDeepSeekLLM` implementation, US-hosted, HIPAA-eligible
 - **OpenAI Realtime fallback** — bundled STT+LLM+TTS option for global English markets
 
@@ -377,14 +381,14 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 - **HIPAA-eligible provider configuration** — provider abstraction selects BAA-eligible providers per tenant
 - **SOC 2 Type II audit** — external auditor, 3–6 month parallel work
-- **HIPAA BAA execution** — signed BAAs with Together AI, Twilio, Cartesia Enterprise, Inworld Enterprise
+- **HIPAA BAA execution** — signed BAAs with Together AI, Twilio, Deepgram Enterprise (single BAA covering both STT and TTS)
 - **Penetration testing** — one-time engagement before US launch
 - **Granular role-based permissions** — beyond admin/member, fine-grained roles like "billing only", "read only"
 
 ### Languages
 
-- **English (US accent)** — same providers as Indian English, US-targeted voice catalog
-- **Spanish** — OpenAI TTS or ElevenLabs for synthesis
+- **English (US accent)** — same provider stack as Indian English with US-targeted Aura voices
+- **Spanish** — OpenAI TTS or ElevenLabs for synthesis where Aura coverage is limited
 - **French** — same
 
 ---
@@ -402,7 +406,7 @@ Only built when a paying customer explicitly demands and commits.
 
 ### Voice orchestration
 
-- **Voice cloning per client** — Inworld pro voice cloning, requires Enterprise BAA for healthcare
+- **Custom voice cloning per client** — Deepgram Aura ships with a curated voice catalog; custom voices are an Enterprise conversation
 - **Mid-call language switching** — caller starts in English, switches to Hindi mid-conversation
 
 ### Business brain — system prompt

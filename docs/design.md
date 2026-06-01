@@ -1,10 +1,10 @@
 # Voice AI micro-SaaS — system design
 
-> Multi-vertical, multi-market AI voice agent platform. Built so STT, TTS, and LLM swap per tenant via configuration — same code serves an English clinic in Delhi, a Hindi-speaking restaurant in Jaipur, and an HIPAA-eligible dental practice in Austin. One generic agent design, two onboarding paths, four target markets, shipped one at a time.
+> Multi-vertical, multi-market AI voice agent platform. Built so STT, TTS, and LLM swap per tenant via configuration — same code serves an English clinic in Delhi, a Hindi-speaking restaurant in Jaipur, and a HIPAA-eligible dental practice in Austin. One generic agent design, two onboarding paths, four target markets, shipped one at a time.
 
 | | |
 |---|---|
-| Version | 1.1 (architecture-extensible) |
+| Version | 1.2 (Deepgram-standardized voice stack) |
 | Status | Pre-implementation |
 | Phase 1 ship target | India English market, generic agent |
 | Owner | Founder + small team |
@@ -41,11 +41,11 @@
 - One generic agent design that fits clinics, restaurants, hotels, marts, and any other inbound voice use case. No vertical forks.
 - Two onboarding doors (sales-led and self-serve) backed by the same APIs and tables.
 - Multi-tenant from day one with database-enforced isolation.
-- Sub-2¢ per-minute variable cost for the cheapest tier, sub-5¢ for the most expensive.
+- Variable cost per minute kept tight: target ~2.5¢/min for India English, sub-5¢/min for US HIPAA. Margins protected by per-minute concise-response discipline and per-tenant overage billing.
 
 ### What ships in v1 (months 1–3)
 
-- One market wired: **India English** with the cheap stack (Cartesia + Inworld + DeepSeek native).
+- One market wired: **India English** with the Deepgram voice stack (Deepgram Nova-3 Monolingual + Deepgram Aura-1 + DeepSeek V4 Flash native).
 - One agent type: generic, configurable system prompt and tool whitelist.
 - Five **starter prompts** at onboarding (receptionist, restaurant, hotel, retail, generic support) — these are prompt presets, not separate state machines.
 - Both onboarding flows live: internal dashboard for sales-led, client portal for self-serve.
@@ -54,7 +54,7 @@
 ### Architected but not shipped in v1
 
 - India Hindi/Hinglish via Sarvam AI (provider stubs exist; not wired).
-- US HIPAA-eligible tier via Together AI + Twilio HIPAA (provider stubs exist; BAAs not signed).
+- US HIPAA-eligible tier via Together AI + Twilio HIPAA + Deepgram BAA (provider stubs exist; BAAs not signed).
 - Multilingual TTS for global expansion (provider stubs only).
 
 ### Out of scope entirely
@@ -95,8 +95,8 @@ flowchart TB
     end
 
     subgraph Concrete["Concrete vendors — pluggable per tenant"]
-        Car[Cartesia / Sarvam / Deepgram]
-        Inw[Inworld / Sarvam / OpenAI]
+        DG[Deepgram / Sarvam]
+        DG2[Deepgram / Sarvam / OpenAI]
         DS[DeepSeek native / Together / OpenAI]
     end
 
@@ -120,8 +120,8 @@ flowchart TB
     Agent --> STT
     Agent --> TTS
     Agent --> LLM
-    STT --> Car
-    TTS --> Inw
+    STT --> DG
+    TTS --> DG2
     LLM --> DS
     Agent <--> Tw
     API <--> SB
@@ -131,9 +131,11 @@ flowchart TB
 
 Six logical layers: telephony, voice orchestration, business brain, action layer, data, ops. Four physical zones: Vercel (frontend), Render/Railway (Python backend), Supabase + Upstash (managed data), and external pay-as-you-go APIs (telephony + voice + LLM, all pluggable).
 
-The architectural keystone is the **provider abstraction layer** (§4). The voice pipeline never talks to Cartesia or DeepSeek directly — it talks to abstract interfaces. Concrete implementations are picked at agent-spawn time from the tenant's config. This is what makes "ship one market today, add three more without rebuilding" possible.
+The architectural keystone is the **provider abstraction layer** (§4). The voice pipeline never talks to Deepgram or DeepSeek directly — it talks to abstract interfaces. Concrete implementations are picked at agent-spawn time from the tenant's config. This is what makes "ship one market today, add three more without rebuilding" possible.
 
 The other keystone is **Pipecat self-hosted inside our FastAPI process** — not Pipecat Cloud. This saves $0.01/min and gives full agent lifecycle control.
+
+A practical consequence of consolidating STT and TTS onto Deepgram in v1: one vendor, one API key, one SOC 2 Type II to track, one BAA path for the eventual US HIPAA tier. Lower operational overhead than splitting across two voice vendors.
 
 ---
 
@@ -174,6 +176,7 @@ app/
 | Telephony SDK | twilio-python | Official |
 | DB client | asyncpg + supabase-py | asyncpg hot path, supabase-py for storage/auth |
 | LLM client | openai SDK (compatible) | DeepSeek, Together, OpenAI all share the API |
+| Voice SDKs | `deepgram-sdk` (Python) | Official Deepgram SDK for STT streaming + TTS streaming |
 
 ### Data
 
@@ -192,19 +195,22 @@ Five paid services collapsed into two managed offerings with generous starter al
 | Service | Use |
 |---|---|
 | Twilio | PSTN telephony, phone numbers, HIPAA-eligible variant |
-| Cartesia / Sarvam / Deepgram | STT (chosen per tenant) |
-| Inworld / Sarvam / OpenAI / ElevenLabs | TTS (chosen per tenant) |
+| Deepgram | STT (Nova-3 family) and TTS (Aura family) — single vendor for both voice layers |
+| Sarvam | STT and TTS for Indian languages (Hindi/Hinglish in v2) |
+| OpenAI | Embeddings (`text-embedding-3-small`), optional TTS fallback for global markets |
 | DeepSeek (native or Together) | LLM (chosen per tenant) |
 | Stripe | Subscriptions + metered billing |
 | Resend | Transactional email |
 | Sentry | Error tracking |
 | PostHog | Product analytics |
 
+Deepgram offers a **$200 free starter credit with no expiry and no credit card required**, sufficient for the entire build phase plus initial customer testing. The team moves to paid pay-as-you-go after the first paying customer goes live.
+
 ---
 
 ## 4. Provider abstraction layer
 
-This is the most important architectural decision in v1.1. The voice pipeline talks to **three abstract interfaces**, never to concrete vendors. Each tenant's `provider_config` (JSONB on `tenants`) names which concrete implementation to use.
+This is the most important architectural decision in v1.2. The voice pipeline talks to **three abstract interfaces**, never to concrete vendors. Each tenant's `provider_config` (JSONB on `tenants`) names which concrete implementation to use.
 
 ### The interfaces
 
@@ -250,10 +256,10 @@ class LLMProvider(Protocol):
 
 | Market | STT | TTS | LLM | Telephony |
 |---|---|---|---|---|
-| **India English** (v1 ship) | `CartesiaSTT` | `InworldTTS` | `DeepSeekNativeLLM` | Twilio standard |
-| **India Hindi** (v1.5) | `SarvamSTT` | `SarvamTTS` | `DeepSeekNativeLLM` or `SarvamLLM` | Twilio standard |
-| **US HIPAA** (v2) | `CartesiaEnterpriseSTT` | `InworldEnterpriseTTS` | `TogetherDeepSeekLLM` | Twilio HIPAA |
-| **Global English** | `OpenAIRealtimeSTT` (bundled) | `OpenAITTS` | `DeepSeekNativeLLM` | Twilio standard |
+| **India English** (v1 ship) | `DeepgramSTT` (Nova-3 Monolingual) | `DeepgramTTS` (Aura-1) | `DeepSeekNativeLLM` | Twilio standard |
+| **India Hindi** (v2) | `SarvamSTT` | `SarvamTTS` | `DeepSeekNativeLLM` or `SarvamLLM` | Twilio standard |
+| **US HIPAA** (v3) | `DeepgramSTTEnterprise` (BAA) | `DeepgramTTSEnterprise` (BAA) | `TogetherDeepSeekLLM` | Twilio HIPAA |
+| **Global English** | `DeepgramSTT` (Nova-3 Monolingual or Multilingual) | `DeepgramTTS` (Aura-1/Aura-2) | `DeepSeekNativeLLM` | Twilio standard |
 
 ### Resolving the right implementations at runtime
 
@@ -262,15 +268,14 @@ class LLMProvider(Protocol):
 
 PROVIDERS = {
     "stt": {
-        "cartesia": CartesiaSTT,
-        "cartesia_enterprise": CartesiaEnterpriseSTT,
-        "sarvam": SarvamSTT,
         "deepgram": DeepgramSTT,
+        "deepgram_baa": DeepgramSTTEnterprise,
+        "sarvam": SarvamSTT,
         "openai_realtime": OpenAIRealtimeSTT,
     },
     "tts": {
-        "inworld": InworldTTS,
-        "inworld_enterprise": InworldEnterpriseTTS,
+        "deepgram": DeepgramTTS,
+        "deepgram_baa": DeepgramTTSEnterprise,
         "sarvam": SarvamTTS,
         "openai": OpenAITTS,
         "elevenlabs": ElevenLabsTTS,
@@ -292,9 +297,21 @@ def make_pipeline(tenant: Tenant) -> Pipeline:
 
 ### Why this matters
 
-Cost varies 2–3x by market (see §12). Compliance changes per market. Latency varies. The voice pipeline doesn't care — it gets transcripts, generates responses, plays audio. Every provider swap is a config change, not a code change.
+Cost varies 2–3× by market (see §12). Compliance changes per market. Latency varies. The voice pipeline doesn't care — it gets transcripts, generates responses, plays audio. Every provider swap is a config change, not a code change.
 
 In v1 only the India English chain is wired up. The other implementations are stubs (`raise NotImplementedError`) until a tenant in that market signs up.
+
+### Why Deepgram for both STT and TTS
+
+Choosing one vendor for both voice layers is deliberate, not accidental:
+
+- **Single SDK, single API key, single secret to rotate.** Half the credential-management surface area.
+- **Single SOC 2 Type II and single HIPAA BAA pathway** when v3 lands. Deepgram signs BAAs for Enterprise customers handling ePHI.
+- **Latency advantage from shared connection pooling** — both layers hit the same `api.deepgram.com` endpoint.
+- **Pricing is competitive at both layers**: Nova-3 Monolingual at $0.0048/min streaming (current promotional rate; $0.0077/min standard) and Aura-1 at $0.015 per 1,000 characters, which translates to roughly $0.008/min of live call time at the concise-response budget the system prompt enforces.
+- **Concurrency headroom**: pay-as-you-go limits are 150 concurrent STT websocket connections and 45 concurrent TTS connections — sufficient for the first 50–100 paying tenants. Growth plan extends both.
+
+The provider abstraction (above) preserves the option to swap one layer to a different vendor per-tenant if a specific market or customer demands it, without touching pipeline code.
 
 ---
 
@@ -331,11 +348,13 @@ For India-first (Delhi, Mumbai, Bangalore tenants):
 - Supabase — `ap-south-1` (Mumbai)
 - Upstash — `ap-south-1`
 - Twilio — Indian local prefixes, voice routed via Singapore/Mumbai
+- Deepgram — global API; latency from Singapore to Deepgram's nearest POP is acceptable for streaming STT and TTS at the planned per-turn budget
 
 For US-targeted tenants (added later):
 
 - Backend — Railway US-East or Render Ohio
 - Supabase + Upstash — `us-east-1`
+- Deepgram — global API; US-region latency is excellent
 
 Multi-region is a v2 problem. Until v2 there's one backend region serving all tenants, with reasonable latency penalty for the secondary market.
 
@@ -370,8 +389,8 @@ CREATE TABLE tenants (
   timezone        text NOT NULL DEFAULT 'Asia/Kolkata',
   plan            text NOT NULL DEFAULT 'starter',
   provider_config jsonb NOT NULL DEFAULT '{
-    "stt": "cartesia",
-    "tts": "inworld",
+    "stt": "deepgram",
+    "tts": "deepgram",
     "llm": "deepseek_native"
   }'::jsonb,
   onboarding_mode text NOT NULL DEFAULT 'self_serve',
@@ -450,7 +469,7 @@ CREATE TABLE agents (
   -- 'receptionist'|'restaurant'|'hotel'|'retail'|'generic_support'
   system_prompt   text NOT NULL,         -- final assembled prompt, editable
   tools           text[] NOT NULL,       -- whitelist of tool names
-  voice_id        text NOT NULL,         -- TTS provider voice ID
+  voice_id        text NOT NULL,         -- Deepgram Aura voice ID (e.g. 'aura-asteria-en')
   phone_number    text UNIQUE NOT NULL,
   twilio_sid      text NOT NULL,
   is_active       boolean DEFAULT true,
@@ -579,6 +598,8 @@ say: "Let me transfer you to a human." Then call transferToHuman.
 ```
 
 Fully assembled it's roughly 1,500–2,500 tokens. Same string used for every call to this agent.
+
+The "≤ 25 words" rule is also a TTS cost-control mechanism: Aura-1 bills by character, so concise responses cap per-minute TTS cost. A 25-word reply at ~5 chars/word is ~125 chars, costing ~$0.002 per turn at the published rate.
 
 Five starter prompts ship in v1 — receptionist, restaurant, hotel, retail, generic support. They're stored as records in a `prompt_templates` table and surfaced in the onboarding flow.
 
@@ -764,6 +785,8 @@ sequenceDiagram
 
 If per-turn latency exceeds the ceiling consistently, the first thing to check is the LLM provider's queue. The escape hatch is per-tenant: switch that tenant's `provider_config.llm` to `together_deepseek` or `openai_gpt5_mini` for predictable latency, accepting higher per-minute cost.
 
+If Deepgram STT or TTS shows latency degradation, the same per-tenant escape applies: swap `provider_config.tts` to `openai` for the affected tenant while diagnosing. The abstraction layer makes this a database edit, not a deploy.
+
 ---
 
 ## 11. Dual-path onboarding
@@ -830,34 +853,41 @@ All actions logged.
 
 | Tier | STT | TTS | LLM | Telephony | Backend | Total |
 |---|---|---|---|---|---|---|
-| **India English** | Cartesia $0.0022 | Inworld $0.0050 | DeepSeek $0.0012 | Twilio $0.0085 | $0.0010 | **$0.018/min** |
-| **India Hindi** | Sarvam $0.0050 | Sarvam $0.0050 | DeepSeek $0.0012 | Twilio $0.0085 | $0.0010 | **$0.021/min** |
-| **US HIPAA** | Cartesia Ent $0.0050 | Inworld Ent $0.0100 | Together $0.0100 | Twilio HIPAA $0.0130 | $0.0010 | **$0.039/min** |
+| **India English** | Deepgram Nova-3 $0.0048 | Deepgram Aura-1 ~$0.0080 | DeepSeek $0.0020 | Twilio $0.0085 | $0.0010 | **~$0.024/min** |
+| **India Hindi** | Sarvam $0.0050 | Sarvam $0.0050 | DeepSeek $0.0020 | Twilio $0.0085 | $0.0010 | **~$0.022/min** |
+| **US HIPAA** | Deepgram BAA ~$0.0120 | Deepgram BAA ~$0.0150 | Together $0.0100 | Twilio HIPAA $0.0130 | $0.0010 | **~$0.051/min** |
 
-Sarvam pricing is estimated from public materials and India-startup norms; confirm before promising margins to investors.
+**Notes on the cost numbers above:**
+
+- **Deepgram Nova-3 Monolingual streaming** is at the current promotional rate of $0.0048/min. Standard rate is $0.0077/min. Refresh this row when the promo ends.
+- **Deepgram Aura-1** is billed at $0.015 per 1,000 characters, not per minute. The $0.008/min figure assumes ~533 chars of agent speech per minute of live call — consistent with the system prompt's "replies under 25 words" budget. Higher verbosity raises this proportionally.
+- **Deepgram BAA tier** pricing is approximate (Enterprise quote). The $0.012 STT and $0.015 TTS estimates are placeholders pending the first US HIPAA prospect; reconfirm during contract negotiation.
+- **Sarvam** pricing is estimated from public materials and India-startup norms; confirm before promising margins to investors.
+- **Twilio India** is pending final India number verification.
+- **Deepgram $200 starter credit** covers all of v1's development and the first cohort of testing calls; the team transitions to paid PAYG after the first paying customer is live.
 
 ### Suggested pricing per tier
 
 | Tier | Plan | Price | 200 min margin |
 |---|---|---|---|
-| India English | Starter | ₹2,499/mo (~$30) | 78% |
-| India English | Pro | ₹6,999/mo (~$85) | 91% |
-| India Hindi | Pro | ₹7,499/mo (~$90) | 88% |
-| US HIPAA | Pro | $299/mo | 91% |
+| India English | Starter | ₹2,999/mo (~$36) | 87% |
+| India English | Pro | ₹7,999/mo (~$96) | 95% |
+| India Hindi | Pro | ₹8,499/mo (~$102) | 91% |
+| US HIPAA | Pro | $349/mo | 71% |
 
-These are placeholders. Validate willingness-to-pay before locking in.
+Prices revised upward from v1.1 to preserve margin at the Deepgram cost basis. Still placeholders — validate willingness-to-pay against three to five Indian SMB prospects before locking in. The Indian Pro margin is generous on purpose; trim it down only if competitive pressure demands.
 
 ### Monthly fixed costs by scale
 
 | Stage | Clients | Calls/mo | Fixed | Variable | Total |
 |---|---|---|---|---|---|
-| Build phase | 0 | 0 | ~$0 | ~$0 | ~$0 |
-| First 10 clients | 10 | 2,000 | $10 (numbers) | $40 | $50 |
-| 50 clients | 50 | 10,000 | $50 + $5 (Railway) | $200 | $255 |
-| 200 clients | 200 | 50,000 | $200 + $25 | $900 | $1,125 |
-| 500 clients | 500 | 150,000 | $500 + $100 | $2,700 | $3,300 |
+| Build phase | 0 | 0 | ~$0 | ~$0 (Deepgram credits) | ~$0 |
+| First 10 clients | 10 | 2,000 | $10 (numbers) | $48 | $58 |
+| 50 clients | 50 | 10,000 | $50 + $5 (Railway) | $240 | $295 |
+| 200 clients | 200 | 50,000 | $200 + $25 | $1,200 | $1,425 |
+| 500 clients | 500 | 150,000 | $500 + $100 | $3,600 | $4,200 |
 
-Phone numbers at $1/month each are the only line item scaling linearly with client count.
+Phone numbers at $1/month each are the only line item scaling linearly with client count. Variable spend assumes the Deepgram pay-as-you-go rate ($0.024/min average for India English); savings would be available on Deepgram's annual Growth plan once monthly spend stabilizes above ~$300.
 
 ### Where cost can spike
 
@@ -865,11 +895,12 @@ Phone numbers at $1/month each are the only line item scaling linearly with clie
 |---|---|---|
 | Cache miss rate | Prompt edited frequently or dynamic per-call | Lock prompt strings to agent versions; dynamic context goes in messages, not prompt |
 | Long calls | Talkative clients average 15+ min | Soft cap at 20 min with voicemail handoff |
-| TTS over-generation | LLM verbose | "Be concise" in prompt; cap output at 150 tokens |
-| Concurrency burst | Restaurant lunch rush at 50 concurrent | Stress-test autoscale path; document saturation point |
+| TTS over-generation | LLM verbose | "Be concise" in prompt; cap output at 150 tokens; monitor chars-per-turn |
+| Concurrency burst | Restaurant lunch rush at 50 concurrent | Stress-test autoscale path; document Deepgram concurrency ceiling (150 STT WSS, 45 TTS WSS on PAYG) |
 | Provider price increase | Vendor raises rates | Provider abstraction = swap in 1 hour |
+| Deepgram promo ends | Streaming STT rises from $0.0048 to $0.0077/min | Reassess pricing; consider Growth plan annual commit |
 
-The last row is the strategic value of §4 in dollars.
+The last two rows are the strategic value of §4 in dollars: when Deepgram raises a rate, the per-tenant swap is a config update.
 
 ---
 
@@ -882,14 +913,16 @@ The last row is the strategic value of §4 in dollars.
 - Retention: recordings 30 days, transcripts 90 days; client can request shorter.
 - Data subject rights: per-tenant export and deletion via portal API, JSON export, hard delete with cascade.
 
-### US HIPAA (v2 path — architecture supports today)
+### US HIPAA (v3 path — architecture supports today)
 
 Architecture supports HIPAA via tenant configuration. When the first US clinic prospect lands, the work is operational, not engineering:
 
-1. Sign BAAs with: Together AI, Cartesia Enterprise, Inworld Enterprise, Twilio HIPAA, Render or Railway BAA tier, Supabase BAA tier.
-2. Set the prospect's `provider_config` to BAA-eligible implementations.
+1. Sign BAAs with: Together AI, Deepgram (Enterprise tier, covers both STT and TTS in a single agreement), Twilio HIPAA, Render or Railway BAA tier, Supabase BAA tier.
+2. Set the prospect's `provider_config` to BAA-eligible implementations (`deepgram_baa` for STT and TTS, `together_deepseek` for LLM).
 3. Run SOC 2 Type II audit (~$20–50K, 3–6 months).
 4. Operational: HIPAA-eligible Render/Railway, audit log retention 6 years, PII scrubbing on Sentry.
+
+Standardizing both voice layers on Deepgram is a deliberate compliance advantage: one BAA covers the entire voice stack instead of two parallel vendor agreements.
 
 Don't pay these costs until a US HIPAA prospect is paying or signed.
 
@@ -926,6 +959,7 @@ Internal dashboard surfaces per tenant and globally:
 - Sentiment trend (LLM-tagged per turn)
 - Cost per call (using `provider_snapshot` for accuracy)
 - Per-provider latency (which STT/TTS/LLM is fastest right now?)
+- TTS chars-per-turn average (cost-control signal)
 
 PostHog tracks both onboarding funnels separately:
 
@@ -966,9 +1000,10 @@ Flagged calls queue in the internal dashboard.
 | Supabase starter | DB > 400MB or > 50K calls/month | Supabase Pro ($25/mo) |
 | Render starter | Concurrent calls > 15 or p95 latency > 1s | Render Standard ($7/mo) or Railway pay-as-you-go |
 | Upstash starter | > 10K Redis commands/day | Upstash pay-as-you-go (~$0.20 per 100K commands) |
-| Cartesia Scale | Concurrent STT > 60 | Cartesia Enterprise (custom) |
+| Deepgram PAYG | Monthly Deepgram spend > $300 | Deepgram Growth annual plan (up to 20% off) |
+| Deepgram STT concurrency | Concurrent STT WSS > 120 | Deepgram Growth (225 WSS) or Enterprise |
+| Deepgram TTS concurrency | Concurrent TTS WSS > 40 | Deepgram Growth (60 WSS) or Enterprise |
 | DeepSeek native | Monthly LLM spend > $300 | Self-host on Modal or GPU VPS |
-| Inworld | TTS spend > $300/mo | Self-host Kokoro 82M |
 
 Each trigger is a known cost-step. Monthly review.
 
@@ -994,7 +1029,7 @@ The architecture supports four markets. The team can't ship four simultaneously.
 |---|---|---|---|
 | Phase 1 (v1) | 1–3 | India English | Cheapest stack, home market, fastest signal |
 | Phase 2 (v1.5) | 4–5 | India Hindi via Sarvam | 10× addressable market in India; provider swap only |
-| Phase 3 (v2) | 6–9 | US HIPAA via Together | Requires compliance investment; pursue with a real prospect |
+| Phase 3 (v2) | 6–9 | US HIPAA via Together + Deepgram BAA | Requires compliance investment; pursue with a real prospect |
 | Phase 4 (later) | 10+ | Global English / others | Mostly adding provider implementations |
 
 If this order is wrong, pick a phase 1 that's NOT India English — but pick one.
@@ -1009,6 +1044,7 @@ If this order is wrong, pick a phase 1 that's NOT India English — but pick one
 | First-customer mode | Sales-led for first 20; self-serve default after |
 | Hindi LLM choice | DeepSeek native (cheaper) over Sarvam-M (Indian-hosted) — revisit after first Hindi pilot |
 | HIPAA trigger | First paid US clinic prospect — don't spend on SOC 2 audit speculatively |
+| Deepgram plan | PAYG with $200 credit through build phase; switch to Growth annual after $300/mo spend |
 
 ---
 
@@ -1019,7 +1055,7 @@ If this order is wrong, pick a phase 1 that's NOT India English — but pick one
 | Tenant | A client business with their own data, agents, phone numbers, billing |
 | Agent | A configured voice AI for a specific phone number; one tenant has many |
 | Market | A combination of geography, language, and compliance regime (e.g. `india_english`, `us_hipaa`) |
-| Provider | A concrete vendor implementation (Cartesia, Sarvam, DeepSeek, etc.) |
+| Provider | A concrete vendor implementation (Deepgram, Sarvam, DeepSeek, etc.) |
 | Provider config | The JSONB on a tenant that names which STT/TTS/LLM implementations to use |
 | Starter prompt | One of five prompt presets picked at onboarding (receptionist, restaurant, etc.) |
 | Workflow | The single generic state machine all agents run on |
@@ -1032,6 +1068,9 @@ If this order is wrong, pick a phase 1 that's NOT India English — but pick one
 | Media Streams | Twilio's bidirectional audio websocket protocol |
 | Sales-led | Onboarding path where the internal team configures a tenant via the dashboard |
 | Self-serve | Onboarding path where the client configures their own tenant via the portal |
+| Aura voice | A named Deepgram TTS voice (e.g. `aura-asteria-en`, `aura-orion-en`) |
+| Nova-3 | Deepgram's current-generation STT model family |
+| BAA | Business Associate Agreement — HIPAA-required contract with each vendor that touches PHI |
 
 ---
 

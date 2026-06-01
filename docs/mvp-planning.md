@@ -42,7 +42,9 @@ Done over a weekend before Phase 1 begins. Not counted in the five weeks.
 - Vercel, Render, Supabase, Upstash, Sentry, Resend
 - Stripe in live mode with India payment methods enabled (UPI, RuPay, NetBanking)
 - Twilio account with India local number provisioning (verification can take 1–2 business days)
-- Cartesia, Inworld, DeepSeek (each provides starter credits sufficient for the development phase)
+- Deepgram (covers both STT and TTS — $200 starter credit, no expiry, no credit card required)
+- DeepSeek (5M-token starter credit, 30-day expiry)
+- OpenAI ($5 starter credit, used only for embeddings)
 - GitHub organization and team access
 
 ### Domain and DNS
@@ -121,7 +123,7 @@ Migrations create the core tables per `design.md` §6–7:
 - `tenants` — business name, market, language, timezone, plan, provider_config (JSONB), onboarding_mode
 - `tenant_users` — many-to-many link between Supabase users and tenants with role (owner / admin / member)
 - `internal_users` — internal team members with role (admin / sales / support)
-- `agents` — name, system_prompt, tools array, voice_id, phone_number, twilio_sid, version
+- `agents` — name, system_prompt, tools array, voice_id (Deepgram Aura voice), phone_number, twilio_sid, version
 - `calls` — references to tenant and agent, twilio_call_sid, timing, duration, recording_url, summary, outcome, cost_usd, provider_snapshot
 - `call_messages` — per-turn transcript with role, content, tool data, latency
 - `audit_log` — actor, action, payload, timestamp
@@ -159,9 +161,9 @@ A new user can sign up at the marketing site, log in, reach an empty `/portal` p
 - Pipeline composition:
   - Twilio transport for inbound audio
   - VAD (voice activity detection) using Silero
-  - STT processor (Cartesia)
-  - LLM processor (DeepSeek)
-  - TTS processor (Inworld)
+  - STT processor (Deepgram Nova-3 Monolingual, streaming via the official `deepgram-sdk`)
+  - LLM processor (DeepSeek V4 Flash)
+  - TTS processor (Deepgram Aura-1, streaming)
   - Twilio transport for outbound audio
 - Turn detection configured to wait for the caller to finish before generating a response
 - Barge-in handling so the caller can interrupt the agent
@@ -171,13 +173,13 @@ A new user can sign up at the marketing site, log in, reach an empty `/portal` p
 
 The provider abstraction layer from `design.md` §4 is built in this phase. Three Python protocols (`STTProvider`, `TTSProvider`, `LLMProvider`) with one concrete implementation each:
 
-- `CartesiaSTT` — streaming connection to Cartesia Ink-Whisper, exposes async iterator of `Transcript` objects
-- `InworldTTS` — streaming TTS synthesis, returns async iterator of audio chunks
+- `DeepgramSTT` — streaming connection to Deepgram Nova-3 Monolingual via the websocket API, exposes async iterator of `Transcript` objects (partial + final)
+- `DeepgramTTS` — streaming TTS synthesis with Aura-1, returns async iterator of audio chunks, voice selected from the named Aura catalog (e.g. `aura-asteria-en`)
 - `DeepSeekNativeLLM` — OpenAI-compatible client pointed at DeepSeek native API, supports function calling and prompt caching
 - Provider registry resolves names to classes at runtime
 - `make_pipeline(tenant)` factory function reads tenant `provider_config` and returns a configured Pipeline
 
-In Phase 2 only one provider per role is wired up. Stub classes exist for the other providers (`SarvamSTT`, `TogetherDeepSeekLLM`, etc.) that raise `NotImplementedError`, establishing the abstraction shape for later phases.
+In Phase 2 only one provider per role is wired up. Stub classes exist for the other providers (`SarvamSTT`, `SarvamTTS`, `DeepgramSTTEnterprise`, `DeepgramTTSEnterprise`, `TogetherDeepSeekLLM`, etc.) that raise `NotImplementedError`, establishing the abstraction shape for later phases.
 
 ### Call data capture
 
@@ -192,6 +194,10 @@ In Phase 2 only one provider per role is wired up. Stub classes exist for the ot
 - Time to first audio (greeting playback) under 800ms
 - Per-turn round-trip latency under 1.2 seconds on the 90th percentile
 - Per-component latency logged so bottlenecks can be diagnosed quickly
+
+### Cost-control instrumentation
+
+Because Aura-1 is billed per character rather than per minute, a per-turn `tts_chars` counter is written into the latency breakdown JSONB alongside `latency_ms`. This gives a direct cost-per-turn signal and surfaces verbosity drift in production prompts.
 
 ### Milestone
 
@@ -243,7 +249,7 @@ Pages built:
 - Tenant list — searchable table with pagination, filter by plan, sort by recent activity
 - Tenant detail — header with business info, tabs for agents, recent calls, billing, audit log
 - Tenant create form — fields for business name, vertical, timezone, phone number country, plan
-- Agent create + edit form — prompt textarea with character count, tool checkboxes from the registry, voice dropdown from Inworld catalog, phone number purchase
+- Agent create + edit form — prompt textarea with character count, tool checkboxes from the registry, voice dropdown from the Deepgram Aura voice catalog with audio preview, phone number purchase
 - Audit log writes on every save
 
 ### Multi-tenant verification
@@ -307,13 +313,13 @@ Tools defined as Python classes with Pydantic input schemas:
 ```python
 class TransferToHumanInput(BaseModel):
     reason: str
-    
+
 class TransferToHumanTool:
     name = "transferToHuman"
     description = "Transfer the call to a human at the configured fallback number"
     input_schema = TransferToHumanInput
     idempotent = True
-    
+
     async def execute(self, tenant_id: UUID, args: TransferToHumanInput) -> str:
         # ...
 ```
@@ -337,7 +343,7 @@ Tools available in v1:
 - Background job triggered on call end
 - LLM-generated summary written to `calls.summary`
 - `calls.outcome` classified from the conversation (booked / transferred / info_only / abandoned)
-- `calls.cost_usd` calculated from provider snapshot and duration
+- `calls.cost_usd` calculated from provider snapshot, duration, and the recorded TTS character count
 
 ### Milestone
 
