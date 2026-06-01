@@ -1,0 +1,16 @@
+# Normalize line endings: store text as LF in git and check out LF on every
+# platform. Without this, Windows checkouts (core.autocrlf=true) get CRLF in the
+# working tree, which makes `prettier --check` / `pnpm format:check` fail locally
+# even though the committed files are LF and Linux CI passes.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending normalized.
+*.woff binary
+*.woff2 binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary

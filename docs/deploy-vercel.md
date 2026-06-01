@@ -39,6 +39,7 @@ Project → **Settings** → **Environment Variables** (Production + Preview):
 | `NEXT_PUBLIC_SUPABASE_URL`      | `https://<project-ref>.supabase.co`                                 |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                                                   |
 | `NEXT_PUBLIC_API_URL`           | `https://api.yourdomain.ai` or `https://ai-voice-ocy9.onrender.com` |
+| `NEXT_PUBLIC_SITE_URL`          | `https://yourdomain.ai` (SEO og:url / canonical; avoids localhost)  |
 | `NEXT_PUBLIC_APP_DOMAIN`        | `yourdomain.ai`                                                     |
 | `NEXT_PUBLIC_PORTAL_HOST`       | `app.yourdomain.ai`                                                 |
 | `NEXT_PUBLIC_INTERNAL_HOST`     | `internal.yourdomain.ai` (optional)                                 |
