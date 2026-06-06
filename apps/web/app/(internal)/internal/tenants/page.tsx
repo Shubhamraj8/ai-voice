@@ -1,5 +1,5 @@
-import { InternalPlaceholderPage } from "@/components/internal-dashboard";
+import { TenantsTable } from "@/components/internal-dashboard/tenants-table";
 
 export default function InternalTenantsPage() {
-  return <InternalPlaceholderPage href="/internal/tenants" />;
+  return <TenantsTable />;
 }

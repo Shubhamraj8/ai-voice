@@ -61,7 +61,7 @@ export function InternalShell({ role, email, name, children }: InternalShellProp
         </header>
 
         <main className={cn("flex-1 px-4 py-8 md:px-8 md:py-10")}>
-          <div className="mx-auto max-w-4xl">{children}</div>
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>
     </div>
