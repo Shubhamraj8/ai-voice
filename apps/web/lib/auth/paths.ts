@@ -1,11 +1,20 @@
 /** Route classification for auth guards (ticket 1.08). */
 
+export function isClientLoginPath(pathname: string): boolean {
+  return pathname === "/login" || pathname.startsWith("/login/");
+}
+
+export function isInternalLoginPath(pathname: string): boolean {
+  return pathname === "/internal/login" || pathname.startsWith("/internal/login/");
+}
+
 export function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/" ||
-    pathname.startsWith("/login") ||
+    isClientLoginPath(pathname) ||
     pathname.startsWith("/signup") ||
-    pathname.startsWith("/auth")
+    pathname.startsWith("/auth") ||
+    isInternalLoginPath(pathname)
   );
 }
 
@@ -14,6 +23,9 @@ export function isPortalPath(pathname: string): boolean {
 }
 
 export function isInternalPath(pathname: string): boolean {
+  if (isInternalLoginPath(pathname)) {
+    return false;
+  }
   return pathname === "/internal" || pathname.startsWith("/internal/");
 }
 

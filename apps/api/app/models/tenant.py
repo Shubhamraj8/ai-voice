@@ -19,6 +19,12 @@ class TenantOnboardingMode(StrEnum):
     HYBRID = "hybrid"
 
 
+class TenantStatus(StrEnum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    CHURNED = "churned"
+
+
 class ProviderConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -39,6 +45,10 @@ class Tenant(BaseModel):
     plan: str
     provider_config: ProviderConfig
     onboarding_mode: TenantOnboardingMode
+    status: TenantStatus = TenantStatus.ACTIVE
+    contact_email: str | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
     archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

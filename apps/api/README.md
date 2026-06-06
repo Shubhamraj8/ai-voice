@@ -25,6 +25,10 @@ pnpm --filter @ai-voice/api dev
 | `GET /internal/ping` | Internal JWT | Cross-tenant ping + audit |
 | `POST /webhooks/twilio/voice` | Twilio signature | Inbound call → TwiML Media Stream |
 | `POST /webhooks/twilio/status` | Twilio signature | Call status callbacks (204) |
+| `GET /internal/tenants` | Internal JWT | Paginated tenant list |
+| `GET /internal/tenants/{id}` | Internal JWT | Tenant detail + agents/calls/audit |
+| `POST /internal/tenants` | Internal JWT | Create tenant |
+| `PATCH /internal/tenants/{id}` | Internal JWT | Update tenant |
 | `GET /docs` | No | OpenAPI |
 
 ## Twilio webhooks (ticket 2.02)

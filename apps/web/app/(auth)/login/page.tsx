@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { resolvePostLoginPath } from "@/lib/auth/post-login-path";
+import { resolveClientPostLoginPath } from "@/lib/auth/post-login-path";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,16 +33,24 @@ function LoginForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setError(error.message);
+    if (signInError) {
+      setError(signInError.message);
       setLoading(false);
       return;
     }
 
-    const destination = await resolvePostLoginPath(supabase, redirectParam);
-    router.push(destination);
+    const result = await resolveClientPostLoginPath(supabase, redirectParam);
+
+    if (!result.ok) {
+      await supabase.auth.signOut();
+      setError("This is the client portal login. ZERQO staff must use the internal console.");
+      setLoading(false);
+      return;
+    }
+
+    router.push(result.path);
     router.refresh();
   }
 
@@ -50,14 +58,21 @@ function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
+          <CardTitle>Client portal</CardTitle>
+          <CardDescription>Sign in to your tenant workspace</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
+                {error.includes("internal console") ? (
+                  <p className="mt-2">
+                    <Link href="/internal/login" className="font-medium text-foreground underline">
+                      Go to internal login →
+                    </Link>
+                  </p>
+                ) : null}
               </div>
             )}
             <div className="space-y-2">
@@ -93,6 +108,12 @@ function LoginForm() {
               Don&apos;t have an account?{" "}
               <Link href="/signup" className="font-medium text-foreground hover:underline">
                 Sign up
+              </Link>
+            </p>
+            <p className="text-center text-xs text-muted-foreground">
+              ZERQO staff?{" "}
+              <Link href="/internal/login" className="font-medium text-foreground hover:underline">
+                Internal console login
               </Link>
             </p>
           </CardFooter>

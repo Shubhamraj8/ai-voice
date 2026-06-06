@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     twilio_media_stream_path: str = "/webhooks/twilio/media"
     twilio_signature_validation: bool = True
 
+    # Internal dashboard (ticket 3.01)
+    internal_user_email: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [

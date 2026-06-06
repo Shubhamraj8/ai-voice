@@ -10,7 +10,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.pool import get_pool
 from app.errors import api_error
 from app.models.tenant import Tenant
@@ -148,10 +148,33 @@ async def get_current_tenant(
         )
 
 
+async def _try_promote_founding_internal_user(
+    conn,
+    user: User,
+    settings: Settings,
+) -> None:
+    """Auto-promote the founding internal user on first authenticated request."""
+    if not settings.internal_user_email or not user.email:
+        return
+
+    if user.email.lower() != settings.internal_user_email.lower():
+        return
+
+    await conn.execute(
+        """
+        INSERT INTO internal_users (user_id, role)
+        VALUES ($1, 'admin')
+        ON CONFLICT (user_id) DO NOTHING
+        """,
+        user.id,
+    )
+
+
 async def require_internal_user(
     user: Annotated[User, Depends(get_current_user)],
     pool=Depends(get_pool),
 ) -> InternalUserContext:
+    settings = get_settings()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
@@ -161,6 +184,32 @@ async def require_internal_user(
             user.id,
         )
         if not row:
+            await _try_promote_founding_internal_user(conn, user, settings)
+            row = await conn.fetchrow(
+                """
+                SELECT role FROM internal_users
+                WHERE user_id = $1
+                """,
+                user.id,
+            )
+        if not row:
             raise api_error(403, "not_internal", "User does not have internal access")
 
         return InternalUserContext(user=user, internal_role=row["role"])
+
+
+def require_internal_role(role: str):
+    """Dependency factory — e.g. Depends(require_internal_role('admin'))."""
+
+    async def _require(
+        ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+    ) -> InternalUserContext:
+        if ctx.internal_role != role:
+            raise api_error(
+                403,
+                "insufficient_internal_role",
+                f"Requires internal role: {role}",
+            )
+        return ctx
+
+    return _require
