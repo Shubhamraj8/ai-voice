@@ -1,0 +1,373 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, PauseCircle, PlayCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { fetchTenantDetail, patchTenant, type TenantDetail } from "@/lib/api/internal";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "agents", label: "Agents" },
+  { id: "calls", label: "Calls" },
+  { id: "knowledge", label: "Knowledge" },
+  { id: "billing", label: "Billing" },
+  { id: "audit", label: "Audit" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
+
+type TenantDetailViewProps = {
+  tenantId: string;
+};
+
+function statusClass(status: string) {
+  if (status === "active") return "bg-emerald-100 text-emerald-800";
+  if (status === "paused") return "bg-amber-100 text-amber-800";
+  return "bg-zinc-200 text-zinc-700";
+}
+
+export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabId) || "overview";
+
+  const [data, setData] = useState<TenantDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [providerDraft, setProviderDraft] = useState({
+    stt: "",
+    tts: "",
+    llm: "",
+  });
+
+  const loadDetail = useCallback(
+    async (auditPage = 1) => {
+      setLoading(true);
+      setError(null);
+
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setError("Not signed in");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const detail = await fetchTenantDetail(session.access_token, tenantId, auditPage);
+        setData(detail);
+        setProviderDraft(detail.tenant.provider_config);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load tenant");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tenantId]
+  );
+
+  useEffect(() => {
+    void loadDetail(activeTab === "audit" ? Number(searchParams.get("audit_page") ?? 1) : 1);
+  }, [activeTab, loadDetail, searchParams]);
+
+  function setTab(tab: TabId) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    if (tab !== "audit") {
+      params.delete("audit_page");
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  }
+
+  async function saveProviderConfig() {
+    if (!data) return;
+    setSaving(true);
+    setError(null);
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await patchTenant(session.access_token, tenantId, {
+        provider_config: providerDraft,
+      });
+      await loadDetail();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save provider config");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateStatus(status: "active" | "paused") {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    await patchTenant(session.access_token, tenantId, { status });
+    await loadDetail();
+  }
+
+  if (loading && !data) {
+    return <p className="text-muted-foreground">Loading tenant…</p>;
+  }
+
+  if (!data) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        {error ?? "Tenant not found"}
+      </div>
+    );
+  }
+
+  const { tenant } = data;
+  const maxVolume = Math.max(...data.call_volume_14d.map((point) => point.count), 1);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3">
+        <Link
+          href="/internal/tenants"
+          aria-label="Back to tenants"
+          className={buttonVariants({ variant: "outline", size: "icon-sm" })}
+        >
+          <ArrowLeft className="size-4" />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{tenant.business_name}</h1>
+            <span
+              className={cn(
+                "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                statusClass(tenant.status)
+              )}
+            >
+              {tenant.status}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {tenant.market.replaceAll("_", " ")} · {tenant.slug}
+            {tenant.contact_email ? ` · ${tenant.contact_email}` : ""}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {tenant.status === "active" ? (
+            <Button variant="outline" size="sm" onClick={() => void updateStatus("paused")}>
+              <PauseCircle className="mr-2 size-4" />
+              Pause
+            </Button>
+          ) : tenant.status === "paused" ? (
+            <Button variant="outline" size="sm" onClick={() => void updateStatus("active")}>
+              <PlayCircle className="mr-2 size-4" />
+              Resume
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-zerqo-line pb-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setTab(tab.id)}
+            className={cn(
+              "rounded-t-md px-3 py-2 text-sm font-medium transition-colors",
+              activeTab === tab.id
+                ? "border-b-2 border-[#f04e00] text-[#f04e00]"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {error ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+      {activeTab === "overview" ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="rounded-xl border border-zerqo-line bg-white p-5">
+            <h2 className="font-medium">Provider config</h2>
+            <div className="mt-4 grid gap-3">
+              {(["stt", "tts", "llm"] as const).map((key) => (
+                <div key={key} className="space-y-1">
+                  <Label htmlFor={key}>{key.toUpperCase()}</Label>
+                  <Input
+                    id={key}
+                    value={providerDraft[key]}
+                    onChange={(e) =>
+                      setProviderDraft((draft) => ({ ...draft, [key]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <Button
+              className="mt-4 bg-[#f04e00] hover:bg-[#d94400]"
+              size="sm"
+              disabled={saving}
+              onClick={() => void saveProviderConfig()}
+            >
+              {saving ? "Saving…" : "Save config"}
+            </Button>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5">
+            <h2 className="font-medium">Call volume (14 days)</h2>
+            <div className="mt-4 flex h-32 items-end gap-1">
+              {data.call_volume_14d.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No calls in the last 14 days.</p>
+              ) : (
+                data.call_volume_14d.map((point) => (
+                  <div key={point.day} className="flex flex-1 flex-col items-center gap-1">
+                    <div
+                      className="w-full rounded-t bg-[#f04e00]/80"
+                      style={{ height: `${(point.count / maxVolume) * 100}%`, minHeight: 4 }}
+                      title={`${point.day}: ${point.count}`}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5 lg:col-span-2">
+            <h2 className="font-medium">Latest calls</h2>
+            {data.recent_calls.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">No calls yet.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-zerqo-line/70">
+                {data.recent_calls.map((call) => (
+                  <li key={call.id} className="flex justify-between py-2 text-sm">
+                    <span>{call.from_number}</span>
+                    <span className="text-muted-foreground">
+                      {new Date(call.started_at).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === "agents" ? (
+        <section className="rounded-xl border border-zerqo-line bg-white">
+          {data.agents.length === 0 ? (
+            <p className="p-5 text-sm text-muted-foreground">
+              No agents linked yet (form in 3.08).
+            </p>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="border-b border-zerqo-line bg-[#faf7f3] text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Phone</th>
+                  <th className="px-4 py-3 text-left">Voice</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.agents.map((agent) => (
+                  <tr key={agent.id} className="border-b border-zerqo-line/70">
+                    <td className="px-4 py-3 font-medium">{agent.name}</td>
+                    <td className="px-4 py-3">{agent.phone_number}</td>
+                    <td className="px-4 py-3">{agent.voice_id}</td>
+                    <td className="px-4 py-3">{agent.is_active ? "Active" : "Inactive"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      ) : null}
+
+      {activeTab === "calls" ? (
+        <section className="rounded-xl border border-zerqo-line bg-white p-5">
+          {data.recent_calls.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No calls recorded for this tenant.</p>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="border-b border-zerqo-line text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="py-2 text-left">From</th>
+                  <th className="py-2 text-left">Started</th>
+                  <th className="py-2 text-left">Duration</th>
+                  <th className="py-2 text-left">Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recent_calls.map((call) => (
+                  <tr key={call.id} className="border-b border-zerqo-line/70">
+                    <td className="py-2">{call.from_number}</td>
+                    <td className="py-2">{new Date(call.started_at).toLocaleString()}</td>
+                    <td className="py-2">{call.duration_secs ?? "—"}s</td>
+                    <td className="py-2">{call.outcome ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      ) : null}
+
+      {activeTab === "knowledge" || activeTab === "billing" ? (
+        <section className="rounded-xl border border-dashed border-zerqo-line bg-white p-8 text-center text-sm text-muted-foreground">
+          {activeTab === "knowledge"
+            ? "Knowledge base management arrives in Phase 4."
+            : "Billing details arrive in Phase 5."}
+        </section>
+      ) : null}
+
+      {activeTab === "audit" ? (
+        <section className="rounded-xl border border-zerqo-line bg-white">
+          {data.audit_log.length === 0 ? (
+            <p className="p-5 text-sm text-muted-foreground">No audit events for this tenant.</p>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="border-b border-zerqo-line bg-[#faf7f3] text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 text-left">When</th>
+                  <th className="px-4 py-3 text-left">Action</th>
+                  <th className="px-4 py-3 text-left">Actor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.audit_log.map((entry) => (
+                  <tr key={entry.id} className="border-b border-zerqo-line/70">
+                    <td className="px-4 py-3">{new Date(entry.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{entry.action}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {entry.actor_user_id ?? "system"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      ) : null}
+    </div>
+  );
+}
