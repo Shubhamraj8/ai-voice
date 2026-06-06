@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
 
+    # Twilio webhooks (ticket 2.02) — auth token from 2.01
+    twilio_auth_token: str = ""
+    public_api_base_url: str = "http://localhost:8000"
+    twilio_media_stream_path: str = "/webhooks/twilio/media"
+    twilio_signature_validation: bool = True
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [
