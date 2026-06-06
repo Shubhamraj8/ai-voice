@@ -23,7 +23,21 @@ pnpm --filter @ai-voice/api dev
 | `GET /health` | No | Status + timestamp + DB |
 | `GET /me` | Bearer JWT | User + tenant + role |
 | `GET /internal/ping` | Internal JWT | Cross-tenant ping + audit |
+| `POST /webhooks/twilio/voice` | Twilio signature | Inbound call → TwiML Media Stream |
+| `POST /webhooks/twilio/status` | Twilio signature | Call status callbacks (204) |
 | `GET /docs` | No | OpenAPI |
+
+## Twilio webhooks (ticket 2.02)
+
+Set `TWILIO_AUTH_TOKEN` (from 2.01) and `PUBLIC_API_BASE_URL` to the URL Twilio POSTs to
+(e.g. `https://ai-voice-ocy9.onrender.com` or your ngrok URL in 2.03).
+
+Point the Twilio number **Voice webhook** at `POST {PUBLIC_API_BASE_URL}/webhooks/twilio/voice`
+and **Status callback** at `POST {PUBLIC_API_BASE_URL}/webhooks/twilio/status`.
+
+For local TwiML testing without credentials, set `TWILIO_SIGNATURE_VALIDATION=false` (dev only).
+
+Invalid or missing signatures return `403` with `{"detail":{"code":"...","message":"..."}}`.
 
 ## Auth
 
