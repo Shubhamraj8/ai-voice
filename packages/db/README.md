@@ -196,6 +196,37 @@ Workflow job `db-rls` runs on every PR when these GitHub Actions secrets are set
 
 If secrets are missing, the job is skipped with a notice (web/api jobs still run).
 
+## Internal users (ticket 3.01)
+
+Internal staff are stored in `internal_users` with roles `admin`, `sales`, or `support`.
+
+### Founding internal user (auto-promote)
+
+Set on the **API** service (Render / `apps/api/.env`):
+
+```bash
+INTERNAL_USER_EMAIL=you@yourcompany.com
+```
+
+When that email signs up via the normal Supabase auth flow and signs in at `/internal/login`, the API promotes them to `admin` on the first authenticated internal request. No public API can self-promote arbitrary emails — only an exact match to `INTERNAL_USER_EMAIL`.
+
+### Add another internal user manually (SQL)
+
+Run in the Supabase SQL editor after the person has signed up (so they exist in `auth.users`):
+
+```sql
+-- Replace with the user's auth UUID and desired role.
+INSERT INTO internal_users (user_id, role)
+VALUES ('00000000-0000-0000-0000-000000000000', 'support')
+ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role;
+```
+
+To find `user_id` by email:
+
+```sql
+SELECT id, email FROM auth.users WHERE email = 'colleague@yourcompany.com';
+```
+
 ## Troubleshooting
 
 - **`password authentication failed`** — wrong password in `DATABASE_URL`
