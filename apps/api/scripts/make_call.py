@@ -5,11 +5,11 @@ Usage (from the repo root):
     # Load .env then run:
     python apps/api/scripts/make_call.py
 
-Or set env vars manually on Windows:
+Or set env vars manually on Windows (use your own values — never commit real tokens):
     $env:TWILIO_ACCOUNT_SID = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     $env:TWILIO_AUTH_TOKEN  = "your_auth_token"
-    $env:TWILIO_PHONE_NUMBER = "+91<your-twilio-number>"
-    python apps/api/scripts/make_call.py
+    $env:TWILIO_PHONE_NUMBER = "+1xxxxxxxxxx"
+    python apps/api/scripts/make_call.py +1xxxxxxxxxx
 """
 
 import os
@@ -40,8 +40,13 @@ ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 FROM_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")  # Your Twilio number
 
-# The number to call — change this or pass as CLI arg: python make_call.py +91XXXXXXXXXX
-TO_NUMBER = sys.argv[1] if len(sys.argv) > 1 else "+91XXXXXXXXXX"
+# Number to call — required CLI arg: python make_call.py +1xxxxxxxxxx
+if len(sys.argv) < 2:
+    print("[error] Usage: python apps/api/scripts/make_call.py <to_number>")
+    print("  Example: python apps/api/scripts/make_call.py +919876543210")
+    sys.exit(1)
+
+TO_NUMBER = sys.argv[1]
 
 # ---------------------------------------------------------------------------
 # Validation
