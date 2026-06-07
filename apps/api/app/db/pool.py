@@ -30,6 +30,7 @@ async def create_pool(
                 min_size=min_size,
                 max_size=max_size,
                 command_timeout=60,
+                statement_cache_size=0,
             )
             async with pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
