@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     twilio_media_stream_path: str = "/webhooks/twilio/media"
     twilio_signature_validation: bool = True
 
-    # Deepgram voice (ticket 2.05) — optional; hello-tone fallback when unset
+    # Deepgram (tickets 2.05, 2.07) — Pipecat pipeline + Aura-1 TTS provider
     deepgram_api_key: str = ""
     deepgram_voice: str = "aura-2-helena-en"
 

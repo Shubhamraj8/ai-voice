@@ -1,17 +1,11 @@
-"""Unit tests for the provider abstraction layer (ticket 2.06).
-
-Tests verify:
-- Registry resolves provider keys to the expected stub classes
-- make_pipeline() returns a Pipeline with correct provider types
-- Default India English stack is deepgram + deepgram + deepseek_native
-- All stub classes raise NotImplementedError (not silent failures)
-- validate_provider_config() accepts valid keys and rejects unknown ones
-- MARKET_DEFAULTS covers all TenantMarket values
-"""
+"""Unit tests for the provider abstraction layer (2.06) and DeepgramTTS (2.07)."""
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -28,6 +22,13 @@ from app.providers import (
     Pipeline,
     make_pipeline,
     validate_provider_config,
+)
+from app.providers.deepgram_tts import (
+    _DEFAULT_VOICE,
+    _ENCODING,
+    _MAX_RETRIES,
+    _SAMPLE_RATE,
+    VOICE_CATALOGUE,
 )
 from app.providers.stubs import (
     DeepgramSTT,
@@ -176,14 +177,19 @@ class TestStubsRaiseNotImplemented:
         with pytest.raises(NotImplementedError, match="DeepgramSTT"):
             asyncio.run(DeepgramSTT().connect("en"))
 
-    def test_deepgram_tts_synthesize_raises(self):
+    def test_deepgram_tts_missing_api_key_raises(self):
+        """DeepgramTTS is live (ticket 2.07) — fails fast when API key is absent."""
         import asyncio
 
         async def _run():
             gen = DeepgramTTS().synthesize("hello", "aura-asteria-en", "en")
             await gen.__anext__()
 
-        with pytest.raises(NotImplementedError, match="DeepgramTTS"):
+        with (
+            patch("app.providers.deepgram_tts.get_settings") as mock_settings,
+            pytest.raises(RuntimeError, match="DEEPGRAM_API_KEY"),
+        ):
+            mock_settings.return_value.deepgram_api_key = ""
             asyncio.run(_run())
 
     def test_deepseek_chat_raises(self):
@@ -285,3 +291,322 @@ class TestMarketDefaults:
         cfg1 = default_provider_config(TenantMarket.INDIA_ENGLISH)
         cfg2 = default_provider_config(TenantMarket.INDIA_ENGLISH)
         assert cfg1 is not cfg2  # must be independent copies
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS helpers (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+def _make_pcm_chunk(size: int = 320) -> bytes:
+    return b"\x00" * size
+
+
+async def _collect(gen: AsyncIterator[bytes]) -> list[bytes]:
+    return [chunk async for chunk in gen]
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS constants / catalogue (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsConstants:
+    def test_default_voice_is_asteria(self):
+        assert _DEFAULT_VOICE == "aura-asteria-en"
+
+    def test_encoding_is_linear16(self):
+        assert _ENCODING == "linear16"
+
+    def test_sample_rate_is_8000(self):
+        assert _SAMPLE_RATE == 8000
+
+    def test_max_retries_is_3(self):
+        assert _MAX_RETRIES == 3
+
+    def test_voice_catalogue_has_12_voices(self):
+        assert len(VOICE_CATALOGUE) == 12
+
+    def test_all_required_voices_present(self):
+        required = [
+            "aura-asteria-en",
+            "aura-luna-en",
+            "aura-stella-en",
+            "aura-athena-en",
+            "aura-hera-en",
+            "aura-orion-en",
+            "aura-arcas-en",
+            "aura-perseus-en",
+            "aura-angus-en",
+            "aura-orpheus-en",
+            "aura-helios-en",
+            "aura-zeus-en",
+        ]
+        for voice in required:
+            assert voice in VOICE_CATALOGUE, f"{voice!r} missing from VOICE_CATALOGUE"
+
+    def test_default_voice_in_catalogue(self):
+        assert _DEFAULT_VOICE in VOICE_CATALOGUE
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS voice validation (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsVoiceValidation:
+    async def test_unknown_voice_falls_back_to_default(self):
+        async def _fake_synthesize_once(**kwargs: Any):
+            assert kwargs["voice_id"] == _DEFAULT_VOICE
+            yield _make_pcm_chunk()
+
+        tts = DeepgramTTS()
+        with (
+            patch.object(tts, "_synthesize_once", side_effect=_fake_synthesize_once),
+            patch("app.providers.deepgram_tts.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepgram_api_key = "test-key"
+            chunks = await _collect(
+                tts.synthesize("Hello!", voice_id="nonexistent-voice-en")
+            )
+
+        assert len(chunks) == 1
+
+    async def test_empty_voice_id_uses_default(self):
+        async def _fake_synthesize_once(**kwargs: Any):
+            assert kwargs["voice_id"] == _DEFAULT_VOICE
+            yield _make_pcm_chunk()
+
+        tts = DeepgramTTS()
+        with (
+            patch.object(tts, "_synthesize_once", side_effect=_fake_synthesize_once),
+            patch("app.providers.deepgram_tts.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepgram_api_key = "test-key"
+            chunks = await _collect(tts.synthesize("Hello!", voice_id=""))
+
+        assert len(chunks) == 1
+
+    async def test_valid_voice_is_passed_through(self):
+        async def _fake_synthesize_once(**kwargs: Any):
+            assert kwargs["voice_id"] == "aura-zeus-en"
+            yield _make_pcm_chunk()
+
+        tts = DeepgramTTS()
+        with patch.object(tts, "_synthesize_once", side_effect=_fake_synthesize_once):
+            chunks = await _collect(tts.synthesize("Hi!", voice_id="aura-zeus-en"))
+
+        assert len(chunks) == 1
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS retry + exponential back-off (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsRetryBackoff:
+    async def test_retries_on_transient_error(self):
+        call_count = 0
+
+        async def _failing_synthesize_once(**kwargs: Any):
+            nonlocal call_count
+            call_count += 1
+            raise RuntimeError("transient network error")
+            yield
+
+        tts = DeepgramTTS()
+        with (
+            patch.object(tts, "_synthesize_once", side_effect=_failing_synthesize_once),
+            patch("app.providers.deepgram_tts.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            with pytest.raises(RuntimeError, match="all 3 synthesis attempts failed"):
+                await _collect(tts.synthesize("Hello"))
+
+        assert call_count == _MAX_RETRIES
+
+    async def test_succeeds_on_second_attempt(self):
+        call_count = 0
+
+        async def _flaky_once(**kwargs: Any):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("first attempt fails")
+            yield _make_pcm_chunk()
+
+        tts = DeepgramTTS()
+        with (
+            patch.object(tts, "_synthesize_once", side_effect=_flaky_once),
+            patch("app.providers.deepgram_tts.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            chunks = await _collect(tts.synthesize("Hello"))
+
+        assert len(chunks) == 1
+        assert call_count == 2
+
+    async def test_backoff_sleep_called_between_retries(self):
+        sleep_calls: list[float] = []
+
+        async def _always_fail(**kwargs: Any):
+            raise RuntimeError("boom")
+            yield
+
+        async def _capture_sleep(delay: float) -> None:
+            sleep_calls.append(delay)
+
+        tts = DeepgramTTS()
+        with (
+            patch.object(tts, "_synthesize_once", side_effect=_always_fail),
+            patch(
+                "app.providers.deepgram_tts.asyncio.sleep",
+                side_effect=_capture_sleep,
+            ),
+        ):
+            with pytest.raises(RuntimeError):
+                await _collect(tts.synthesize("Hello"))
+
+        assert len(sleep_calls) == 2
+        assert sleep_calls[0] == 0.5
+        assert sleep_calls[1] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS metrics (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsMetrics:
+    async def test_char_count_matches_text_length(self):
+        text = "Hello, how can I help you today?"
+        recorded_char_count: list[int] = []
+
+        async def _capture_once(**kwargs: Any):
+            recorded_char_count.append(kwargs["char_count"])
+            yield _make_pcm_chunk()
+
+        tts = DeepgramTTS()
+        with patch.object(tts, "_synthesize_once", side_effect=_capture_once):
+            await _collect(tts.synthesize(text))
+
+        assert recorded_char_count == [len(text)]
+
+    async def test_cost_calculation_for_150_chars(self):
+        cost = 150 * 0.015 / 1000
+        assert round(cost, 6) == 0.00225
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS concise-reply budget (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsConciseReplyBudget:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Hello, how can I help you today?",
+            "Sure, I can help you with that. Please hold on.",
+            "Your appointment has been scheduled for tomorrow at 10 AM.",
+        ],
+    )
+    def test_short_utterances_within_budget(self, text: str):
+        words = len(text.split())
+        chars = len(text)
+        assert words <= 25, f"Too many words: {words} > 25"
+        assert chars <= 200, f"Too many chars: {chars} > 200"
+
+    def test_budget_boundary_25_words(self):
+        text = " ".join(["word"] * 25)
+        assert len(text.split()) == 25
+        assert len(text) <= 200
+
+    def test_over_budget_200_words_detected(self):
+        text = " ".join(["word"] * 200)
+        assert len(text.split()) > 25
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS API key guard (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsApiKeyGuard:
+    async def test_missing_api_key_raises_runtime_error(self):
+        tts = DeepgramTTS()
+        with patch("app.providers.deepgram_tts.get_settings") as mock_settings:
+            mock_settings.return_value.deepgram_api_key = ""
+            with pytest.raises(RuntimeError, match="DEEPGRAM_API_KEY is not set"):
+                await _collect(tts.synthesize("Hello"))
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS streaming output (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsStreamingOutput:
+    async def test_yields_multiple_chunks(self):
+        expected_chunks = [
+            _make_pcm_chunk(320),
+            _make_pcm_chunk(320),
+            _make_pcm_chunk(160),
+        ]
+
+        async def _multi_chunk_once(**kwargs: Any):
+            for chunk in expected_chunks:
+                yield chunk
+
+        tts = DeepgramTTS()
+        with patch.object(tts, "_synthesize_once", side_effect=_multi_chunk_once):
+            received = await _collect(tts.synthesize("Hello there!"))
+
+        assert received == expected_chunks
+
+    async def test_synthesize_hello_greeting(self):
+        greeting = "Hello, how can I help you today?"
+
+        async def _once(**kwargs: Any):
+            assert kwargs["text"] == greeting
+            yield _make_pcm_chunk(640)
+
+        tts = DeepgramTTS()
+        with patch.object(tts, "_synthesize_once", side_effect=_once):
+            chunks_received = await _collect(tts.synthesize(greeting))
+
+        assert len(chunks_received) == 1
+        assert len(chunks_received[0]) == 640
+
+
+# ---------------------------------------------------------------------------
+# DeepgramTTS SDK call shape (ticket 2.07)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramTtsSdkCallShape:
+    async def test_generate_stream_is_not_awaited(self):
+        async def _fake_generate(**kwargs: Any):
+            yield _make_pcm_chunk(320)
+            yield _make_pcm_chunk(160)
+
+        generate_mock = MagicMock(side_effect=lambda **kwargs: _fake_generate(**kwargs))
+        mock_client = MagicMock()
+        mock_client.speak.v1.audio.generate = generate_mock
+
+        tts = DeepgramTTS()
+        with (
+            patch(
+                "app.providers.deepgram_tts.AsyncDeepgramClient",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepgram_tts.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepgram_api_key = "test-key"
+            chunks = await _collect(tts.synthesize("Hello"))
+
+        assert len(chunks) == 2
+        generate_mock.assert_called_once()
+        call_kwargs = generate_mock.call_args.kwargs
+        assert call_kwargs["text"] == "Hello"
+        assert call_kwargs["model"] == _DEFAULT_VOICE
+        assert call_kwargs["encoding"] == _ENCODING
+        assert call_kwargs["sample_rate"] == _SAMPLE_RATE

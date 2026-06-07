@@ -1,12 +1,11 @@
-"""Stub provider implementations (ticket 2.06).
-
-Each class is a valid concrete implementation that satisfies its protocol, but
-raises NotImplementedError with a clear message naming the future phase that
-will wire it up.
+"""Provider implementations (tickets 2.06, 2.07).
 
 Phase map
 ---------
-Phase 2  (current)  : DeepgramSTT, DeepgramTTS, DeepSeekNativeLLM  — LIVE
+Phase 2  (current)  : DeepgramSTT  (stub — ticket 2.07)             — STT placeholder
+Phase 2  (LIVE)     : DeepgramTTS  → real impl in deepgram_tts.py
+                    : Aura-1 streaming TTS (ticket 2.07)
+Phase 2  (stub)     : DeepSeekNativeLLM                             — LLM placeholder
 Phase 3  (next)     : SarvamSTT, SarvamTTS                          — India Hindi market
 Phase 3  (next)     : DeepgramSTTEnterprise, DeepgramTTSEnterprise   — US HIPAA BAA tier
 Phase 3  (next)     : TogetherDeepSeekLLM                            — US HIPAA LLM tier
@@ -19,6 +18,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from app.providers.base import LLMResponse, Message, Transcript
+
+# Re-export the real Deepgram Aura-1 TTS implementation (ticket 2.07)
+from app.providers.deepgram_tts import DeepgramTTS  # noqa: F401  (re-export)
 
 # ---------------------------------------------------------------------------
 # Helper
@@ -58,20 +60,9 @@ class DeepgramSTT:
         raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
 
 
-class DeepgramTTS:
-    """Deepgram Aura-1 TTS — India English / US English / Global English.
-
-    Real implementation: ticket 2.07 (Pipecat pipeline wiring).
-    """
-
-    async def synthesize(
-        self,
-        text: str,
-        voice_id: str,
-        language: str,
-    ) -> AsyncIterator[bytes]:
-        raise _not_implemented("DeepgramTTS", "Phase 2 (ticket 2.07)")
-        yield  # make the type-checker happy
+# DeepgramTTS is now a LIVE implementation imported above from deepgram_tts.py.
+# The class is re-exported so that existing code importing from stubs.py continues
+# to work unchanged.  See app/providers/deepgram_tts.py for full source.
 
 
 class DeepSeekNativeLLM:

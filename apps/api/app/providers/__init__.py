@@ -19,11 +19,11 @@ from app.providers.base import (
     Transcript,
     TTSProvider,
 )
-from app.providers.pipeline import Pipeline
 from app.providers.registry import (
     MARKET_DEFAULTS,
     PROVIDERS,
     VALID_PROVIDERS,
+    Pipeline,
     default_provider_config,
     make_pipeline,
     validate_provider_config,
