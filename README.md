@@ -59,6 +59,76 @@ pnpm dev
 
 Both apps expose `hello-world` on their root paths.
 
+## Dev tunnel (Twilio webhooks)
+
+Twilio webhooks require a publicly reachable URL. During local development, use
+ngrok to expose the local FastAPI server.
+
+### 1. Install ngrok
+
+```powershell
+# Windows (any one of):
+winget install ngrok.ngrok
+choco install ngrok
+scoop install ngrok
+```
+
+Or download from <https://ngrok.com/download> and add to `PATH`.
+
+### 2. Add your ngrok authtoken
+
+Sign up at <https://dashboard.ngrok.com>, copy your authtoken, and add it to `.env`:
+
+```env
+NGROK_AUTHTOKEN=your_ngrok_authtoken
+```
+
+> **Stable subdomain (paid plan):** Set `NGROK_SUBDOMAIN=your-name` to get a fixed URL so
+> you only need to configure the Twilio webhook once.
+
+### 3. Start everything with one command
+
+```powershell
+.\scripts\dev-with-tunnel.ps1
+```
+
+This script:
+
+- Loads `.env` into the current shell
+- Starts ngrok → `localhost:8000`
+- Prints the public webhook URL to paste into Twilio Console
+- Starts FastAPI + Next.js (`pnpm dev`) in the foreground
+- Kills ngrok automatically when you press Ctrl+C
+
+Alternatively, start just the tunnel (ngrok only, no dev server):
+
+```bash
+python apps/api/scripts/dev_tunnel.py
+```
+
+### 4. Configure Twilio
+
+Paste the printed URL into the Twilio Console:
+
+```
+Phone Numbers → Manage → Active Numbers → <your number> → Voice Configuration
+Voice URL: https://<your-id>.ngrok-free.app/webhooks/twilio/voice   [HTTP POST]
+```
+
+> **Auto-update:** Set `TWILIO_AUTO_UPDATE_WEBHOOK=true` in `.env` and the tunnel
+> script will update the Twilio Voice URL automatically on each start.
+
+### Switching between dev and production
+
+| Environment | `PUBLIC_API_BASE_URL`                |
+| ----------- | ------------------------------------ |
+| Local dev   | `https://<id>.ngrok-free.app`        |
+| Production  | `https://ai-voice-ocy9.onrender.com` |
+
+Update `PUBLIC_API_BASE_URL` in `.env` (local) or in the Render Dashboard (production)
+whenever the URL changes. The ngrok free tier assigns a new URL on every restart —
+a paid subdomain or `TWILIO_AUTO_UPDATE_WEBHOOK=true` avoids this.
+
 ## Quality checks
 
 From the repository root:
