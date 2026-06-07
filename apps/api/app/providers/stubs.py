@@ -1,0 +1,309 @@
+"""Stub provider implementations (ticket 2.06).
+
+Each class is a valid concrete implementation that satisfies its protocol, but
+raises NotImplementedError with a clear message naming the future phase that
+will wire it up.
+
+Phase map
+---------
+Phase 2  (current)  : DeepgramSTT, DeepgramTTS, DeepSeekNativeLLM  — LIVE
+Phase 3  (next)     : SarvamSTT, SarvamTTS                          — India Hindi market
+Phase 3  (next)     : DeepgramSTTEnterprise, DeepgramTTSEnterprise   — US HIPAA BAA tier
+Phase 3  (next)     : TogetherDeepSeekLLM                            — US HIPAA LLM tier
+Phase 4  (future)   : OpenAIRealtimeSTT, OpenAITTS, ElevenLabsTTS    — global expansion
+Phase 4  (future)   : OpenAIGPT5MiniLLM                              — latency fallback
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+
+from app.providers.base import LLMResponse, Message, Transcript
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+
+def _not_implemented(cls_name: str, phase: str) -> NotImplementedError:
+    return NotImplementedError(
+        f"{cls_name} is not yet implemented. "
+        f"It will be wired up in {phase}. "
+        "Check docs/tickets.md for the relevant ticket."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — India English (LIVE stubs — real implementations in Phase 2 tickets)
+# ---------------------------------------------------------------------------
+
+
+class DeepgramSTT:
+    """Deepgram Nova-3 STT — India English / US English / Global English.
+
+    Real implementation: ticket 2.07 (Pipecat pipeline wiring).
+    """
+
+    async def connect(self, language: str) -> None:
+        raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
+
+    async def stream(
+        self,
+        audio_chunks: AsyncIterator[bytes],
+    ) -> AsyncIterator[Transcript]:
+        raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
+        yield  # make the type-checker happy
+
+    async def close(self) -> None:
+        raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
+
+
+class DeepgramTTS:
+    """Deepgram Aura-1 TTS — India English / US English / Global English.
+
+    Real implementation: ticket 2.07 (Pipecat pipeline wiring).
+    """
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: str,
+        language: str,
+    ) -> AsyncIterator[bytes]:
+        raise _not_implemented("DeepgramTTS", "Phase 2 (ticket 2.07)")
+        yield  # make the type-checker happy
+
+
+class DeepSeekNativeLLM:
+    """DeepSeek V4 Flash via native API — all markets (v1 LLM).
+
+    Real implementation: ticket 2.07 (Pipecat pipeline wiring).
+    """
+
+    async def chat(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        max_tokens: int = 200,
+    ) -> LLMResponse:
+        raise _not_implemented("DeepSeekNativeLLM", "Phase 2 (ticket 2.07)")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — India Hindi market (Sarvam AI)
+# ---------------------------------------------------------------------------
+
+
+class SarvamSTT:
+    """Sarvam AI STT — India Hindi / Hinglish market.
+
+    Real implementation: Phase 3 (India Hindi market sprint).
+    Blocked on: Sarvam AI API access and BAA review.
+    """
+
+    async def connect(self, language: str) -> None:
+        raise _not_implemented(
+            "SarvamSTT",
+            "Phase 3 (India Hindi market — see ticket 3.xx)",
+        )
+
+    async def stream(
+        self,
+        audio_chunks: AsyncIterator[bytes],
+    ) -> AsyncIterator[Transcript]:
+        raise _not_implemented(
+            "SarvamSTT",
+            "Phase 3 (India Hindi market — see ticket 3.xx)",
+        )
+        yield
+
+    async def close(self) -> None:
+        raise _not_implemented(
+            "SarvamSTT",
+            "Phase 3 (India Hindi market — see ticket 3.xx)",
+        )
+
+
+class SarvamTTS:
+    """Sarvam AI TTS — India Hindi / Hinglish market.
+
+    Real implementation: Phase 3 (India Hindi market sprint).
+    Blocked on: Sarvam AI API access.
+    """
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: str,
+        language: str,
+    ) -> AsyncIterator[bytes]:
+        raise _not_implemented(
+            "SarvamTTS",
+            "Phase 3 (India Hindi market — see ticket 3.xx)",
+        )
+        yield
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — US HIPAA tier (Deepgram BAA + Together AI)
+# ---------------------------------------------------------------------------
+
+
+class DeepgramSTTEnterprise:
+    """Deepgram STT under a signed BAA — US HIPAA-eligible tier.
+
+    Real implementation: Phase 3 (US HIPAA tier).
+    Blocked on: Deepgram Enterprise contract + BAA signature.
+    """
+
+    async def connect(self, language: str) -> None:
+        raise _not_implemented(
+            "DeepgramSTTEnterprise",
+            "Phase 3 (US HIPAA tier — Deepgram BAA required)",
+        )
+
+    async def stream(
+        self,
+        audio_chunks: AsyncIterator[bytes],
+    ) -> AsyncIterator[Transcript]:
+        raise _not_implemented(
+            "DeepgramSTTEnterprise",
+            "Phase 3 (US HIPAA tier — Deepgram BAA required)",
+        )
+        yield
+
+    async def close(self) -> None:
+        raise _not_implemented(
+            "DeepgramSTTEnterprise",
+            "Phase 3 (US HIPAA tier — Deepgram BAA required)",
+        )
+
+
+class DeepgramTTSEnterprise:
+    """Deepgram TTS under a signed BAA — US HIPAA-eligible tier.
+
+    Real implementation: Phase 3 (US HIPAA tier).
+    Blocked on: Deepgram Enterprise contract + BAA signature.
+    """
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: str,
+        language: str,
+    ) -> AsyncIterator[bytes]:
+        raise _not_implemented(
+            "DeepgramTTSEnterprise",
+            "Phase 3 (US HIPAA tier — Deepgram BAA required)",
+        )
+        yield
+
+
+class TogetherDeepSeekLLM:
+    """DeepSeek via Together AI — US HIPAA-eligible LLM tier.
+
+    Real implementation: Phase 3 (US HIPAA tier).
+    Blocked on: Together AI HIPAA BAA + US HIPAA Twilio account.
+    """
+
+    async def chat(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        max_tokens: int = 200,
+    ) -> LLMResponse:
+        raise _not_implemented(
+            "TogetherDeepSeekLLM",
+            "Phase 3 (US HIPAA tier — Together AI BAA required)",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Global / fallback providers
+# ---------------------------------------------------------------------------
+
+
+class OpenAIRealtimeSTT:
+    """OpenAI Realtime API STT — global English fallback / low-latency tier."""
+
+    async def connect(self, language: str) -> None:
+        raise _not_implemented(
+            "OpenAIRealtimeSTT",
+            "Phase 4 (global English / latency fallback)",
+        )
+
+    async def stream(
+        self,
+        audio_chunks: AsyncIterator[bytes],
+    ) -> AsyncIterator[Transcript]:
+        raise _not_implemented(
+            "OpenAIRealtimeSTT",
+            "Phase 4 (global English / latency fallback)",
+        )
+        yield
+
+    async def close(self) -> None:
+        raise _not_implemented(
+            "OpenAIRealtimeSTT",
+            "Phase 4 (global English / latency fallback)",
+        )
+
+
+class OpenAITTS:
+    """OpenAI TTS — global English fallback."""
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: str,
+        language: str,
+    ) -> AsyncIterator[bytes]:
+        raise _not_implemented(
+            "OpenAITTS",
+            "Phase 4 (global English / latency fallback)",
+        )
+        yield
+
+
+class ElevenLabsTTS:
+    """ElevenLabs TTS — premium voice quality option."""
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: str,
+        language: str,
+    ) -> AsyncIterator[bytes]:
+        raise _not_implemented(
+            "ElevenLabsTTS",
+            "Phase 4 (global English / latency fallback)",
+        )
+        yield
+
+
+class OpenAIGPT5MiniLLM:
+    """OpenAI GPT-5 Mini — latency fallback LLM."""
+
+    async def chat(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        max_tokens: int = 200,
+    ) -> LLMResponse:
+        raise _not_implemented(
+            "OpenAIGPT5MiniLLM",
+            "Phase 4 (global English / latency fallback)",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Type aliases (for isinstance / Protocol checks in tests)
+# ---------------------------------------------------------------------------
+
+AnySTTProvider = DeepgramSTT | DeepgramSTTEnterprise | SarvamSTT | OpenAIRealtimeSTT
+
+AnyTTSProvider = (
+    DeepgramTTS | DeepgramTTSEnterprise | SarvamTTS | OpenAITTS | ElevenLabsTTS
+)
+
+AnyLLMProvider = DeepSeekNativeLLM | TogetherDeepSeekLLM | OpenAIGPT5MiniLLM
