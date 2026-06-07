@@ -95,7 +95,7 @@ def update_twilio_webhook(public_url: str) -> None:
         return
 
     numbers[0].update(voice_url=webhook_url, voice_method="POST")
-    print(f"[twilio] Voice URL updated → {webhook_url}")
+    print(f"[twilio] Voice URL updated -> {webhook_url}")
 
 
 # ---------------------------------------------------------------------------
@@ -105,13 +105,24 @@ def update_twilio_webhook(public_url: str) -> None:
 
 def main() -> None:
     # Build ngrok command
-    cmd = ["ngrok", "http", str(FASTAPI_PORT), "--log=stdout"]
+    ngrok_bin = "ngrok"
+    if sys.platform == "win32":
+        import shutil
+
+        if not shutil.which(ngrok_bin):
+            winget_path = os.path.expandvars(
+                r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
+            )
+            if os.path.exists(winget_path):
+                ngrok_bin = winget_path
+
+    cmd = [ngrok_bin, "http", str(FASTAPI_PORT), "--log=stdout"]
     if NGROK_AUTHTOKEN:
         cmd += ["--authtoken", NGROK_AUTHTOKEN]
     if NGROK_SUBDOMAIN:
         cmd += ["--subdomain", NGROK_SUBDOMAIN]
 
-    print(f"[info] Starting ngrok tunnel → localhost:{FASTAPI_PORT}")
+    print(f"[info] Starting ngrok tunnel -> localhost:{FASTAPI_PORT}")
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     try:
@@ -129,7 +140,7 @@ def main() -> None:
     print(f"  Twilio webhook: {webhook_url}")
     print()
     print("  Paste the webhook URL into Twilio Console:")
-    print("  Phone Numbers → Manage → Active Numbers → Voice URL")
+    print("  Phone Numbers -> Manage -> Active Numbers -> Voice URL")
     print("=" * 60)
     print()
 
