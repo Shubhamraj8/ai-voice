@@ -177,13 +177,19 @@ class TestStubsRaiseNotImplemented:
             asyncio.run(DeepgramSTT().connect("en"))
 
     def test_deepgram_tts_synthesize_raises(self):
+        """DeepgramTTS is now a LIVE implementation (ticket 2.07).
+
+        Without a DEEPGRAM_API_KEY it raises RuntimeError (not NotImplementedError).
+        The old NotImplementedError was from the stub — now replaced by the real impl.
+        """
         import asyncio
 
         async def _run():
             gen = DeepgramTTS().synthesize("hello", "aura-asteria-en", "en")
             await gen.__anext__()
 
-        with pytest.raises(NotImplementedError, match="DeepgramTTS"):
+        # Real impl raises RuntimeError when no API key is set
+        with pytest.raises(RuntimeError, match="DeepgramTTS"):
             asyncio.run(_run())
 
     def test_deepseek_chat_raises(self):

@@ -37,11 +37,11 @@ Shared models: `Transcript`, `Message`, `ToolCall`, `LLMResponse`.
 
 | Market             | STT key        | TTS key        | LLM key             | Status                    |
 | ------------------ | -------------- | -------------- | ------------------- | ------------------------- |
-| **India English**  | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ Phase 2 (stub ready)   |
+| **India English**  | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ TTS LIVE (ticket 2.07) |
 | **India Hindi**    | `sarvam`       | `sarvam`       | `deepseek_native`   | 🔜 Phase 3                |
-| **US English**     | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ Phase 2 (stub ready)   |
+| **US English**     | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ TTS LIVE (ticket 2.07) |
 | **US HIPAA**       | `deepgram_baa` | `deepgram_baa` | `together_deepseek` | 🔜 Phase 3 (BAA required) |
-| **Global English** | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ Phase 2 (stub ready)   |
+| **Global English** | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ TTS LIVE (ticket 2.07) |
 
 ---
 
@@ -87,9 +87,34 @@ The next call that tenant receives will use the new provider. No restart needed.
 
 ## Phase implementation roadmap
 
-| Phase             | Providers to implement                                                             |
-| ----------------- | ---------------------------------------------------------------------------------- |
-| Phase 2 (current) | `DeepgramSTT`, `DeepgramTTS`, `DeepSeekNativeLLM` — ticket 2.07                    |
-| Phase 3           | `SarvamSTT`, `SarvamTTS` (India Hindi market)                                      |
-| Phase 3           | `DeepgramSTTEnterprise`, `DeepgramTTSEnterprise`, `TogetherDeepSeekLLM` (US HIPAA) |
-| Phase 4           | `OpenAIRealtimeSTT`, `OpenAITTS`, `ElevenLabsTTS`, `OpenAIGPT5MiniLLM`             |
+| Phase             | Providers to implement                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| Phase 2 (current) | `DeepgramSTT` (stub), **`DeepgramTTS` ✅ LIVE** (ticket 2.07), `DeepSeekNativeLLM` (stub) |
+| Phase 3           | `SarvamSTT`, `SarvamTTS` (India Hindi market)                                             |
+| Phase 3           | `DeepgramSTTEnterprise`, `DeepgramTTSEnterprise`, `TogetherDeepSeekLLM` (US HIPAA)        |
+| Phase 4           | `OpenAIRealtimeSTT`, `OpenAITTS`, `ElevenLabsTTS`, `OpenAIGPT5MiniLLM`                    |
+
+---
+
+## Deepgram Aura-1 Voice Catalogue
+
+See [`/services/voice/providers/README.md`](../../../../services/voice/providers/README.md) for the full voice catalogue used by the Phase 3 agent-edit form.
+
+Default voice: **`aura-asteria-en`** (Indian-English-friendly).
+
+All 12 available voices:
+
+| Voice ID          | Gender | Accent       |
+| ----------------- | ------ | ------------ |
+| `aura-asteria-en` | F      | Indian-EN 🇮🇳 |
+| `aura-luna-en`    | F      | American 🇺🇸  |
+| `aura-stella-en`  | F      | American 🇺🇸  |
+| `aura-athena-en`  | F      | British 🇬🇧   |
+| `aura-hera-en`    | F      | American 🇺🇸  |
+| `aura-orion-en`   | M      | American 🇺🇸  |
+| `aura-arcas-en`   | M      | American 🇺🇸  |
+| `aura-perseus-en` | M      | American 🇺🇸  |
+| `aura-angus-en`   | M      | Irish 🇮🇪     |
+| `aura-orpheus-en` | M      | American 🇺🇸  |
+| `aura-helios-en`  | M      | British 🇬🇧   |
+| `aura-zeus-en`    | M      | American 🇺🇸  |

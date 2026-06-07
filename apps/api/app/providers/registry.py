@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from app.errors import api_error
 from app.models.tenant import ProviderConfig, Tenant, TenantMarket
-from app.providers.pipeline import Pipeline
 
 # ---------------------------------------------------------------------------
 # Class-level registry  (design.md §4 layout)
@@ -20,10 +19,11 @@ from app.providers.pipeline import Pipeline
 # Each leaf value is a *class* (not an instance).  make_pipeline() calls it
 # with no arguments to create a fresh instance per call session.
 # ---------------------------------------------------------------------------
+from app.providers.deepgram_tts import DeepgramTTS  # LIVE — ticket 2.07
+from app.providers.pipeline import Pipeline
 from app.providers.stubs import (  # noqa: E402  (after model imports)
     DeepgramSTT,
     DeepgramSTTEnterprise,
-    DeepgramTTS,
     DeepgramTTSEnterprise,
     DeepSeekNativeLLM,
     ElevenLabsTTS,

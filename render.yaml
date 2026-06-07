@@ -36,3 +36,6 @@ services:
         sync: false
       - key: TWILIO_SIGNATURE_VALIDATION
         value: "true"
+      # Deepgram — Aura-1 TTS + Nova-3 STT (ticket 2.07)
+      - key: DEEPGRAM_API_KEY
+        sync: false

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     twilio_media_stream_path: str = "/webhooks/twilio/media"
     twilio_signature_validation: bool = True
 
+    # Deepgram — API key for Aura-1 TTS + Nova-3 STT (ticket 2.07)
+    deepgram_api_key: str = ""
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 
