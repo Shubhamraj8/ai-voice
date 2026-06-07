@@ -16,11 +16,16 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
 
-    # Twilio webhooks (ticket 2.02) — auth token from 2.01
+    # Twilio webhooks (ticket 2.02) — credentials from 2.01
+    twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     public_api_base_url: str = "http://localhost:8000"
     twilio_media_stream_path: str = "/webhooks/twilio/media"
     twilio_signature_validation: bool = True
+
+    # Deepgram voice (ticket 2.05) — optional; hello-tone fallback when unset
+    deepgram_api_key: str = ""
+    deepgram_voice: str = "aura-2-helena-en"
 
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""

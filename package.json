@@ -4,6 +4,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "concurrently -k -n web,api -c blue,green \"pnpm --filter @ai-voice/web dev\" \"pnpm --filter @ai-voice/api dev\"",
+    "dev:voice": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-tunnel.ps1",
     "dev:clean": "pnpm --filter @ai-voice/web run dev:clean",
     "setup": "pnpm install && pnpm --filter @ai-voice/api run install:python",
     "lint": "pnpm --filter @ai-voice/web run lint && pnpm --filter @ai-voice/api run lint",
