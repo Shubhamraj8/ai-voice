@@ -30,10 +30,17 @@ if (Test-Path $envFile) {
 }
 
 # ---------------------------------------------------------------------------
-# Verify ngrok is available
+# Verify ngrok is available — check PATH first, fall back to winget location
 # ---------------------------------------------------------------------------
-if (-not (Get-Command ngrok -ErrorAction SilentlyContinue)) {
-    Write-Error @"
+$ngrokExe = (Get-Command ngrok -ErrorAction SilentlyContinue)?.Source
+if (-not $ngrokExe) {
+    $wingetPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
+    if (Test-Path $wingetPath) {
+        $ngrokExe = $wingetPath
+        Write-Host "[info] ngrok not on PATH — using winget install path" -ForegroundColor Yellow
+    }
+    else {
+        Write-Error @"
 ngrok not found on PATH.
 
 Install it with one of:
@@ -43,7 +50,8 @@ Install it with one of:
 
 Or download from https://ngrok.com/download and add to PATH.
 "@
-    exit 1
+        exit 1
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -55,7 +63,7 @@ $ngrokArgs = @("http", $ApiPort.ToString(), "--log=stdout")
 if ($env:NGROK_AUTHTOKEN) { $ngrokArgs += @("--authtoken", $env:NGROK_AUTHTOKEN) }
 if ($env:NGROK_SUBDOMAIN)  { $ngrokArgs += @("--subdomain",  $env:NGROK_SUBDOMAIN)  }
 
-$ngrokProc = Start-Process ngrok -ArgumentList $ngrokArgs -PassThru -WindowStyle Minimized
+$ngrokProc = Start-Process $ngrokExe -ArgumentList $ngrokArgs -PassThru -WindowStyle Minimized
 
 # Give ngrok a moment to establish the tunnel
 Start-Sleep -Seconds 2
