@@ -22,9 +22,9 @@ from app.providers.base import LLMProvider, STTProvider, TTSProvider
 # Each leaf value is a *class* (not an instance).  make_pipeline() calls it
 # with no arguments to create a fresh instance per call session.
 # ---------------------------------------------------------------------------
+from app.providers.deepgram_stt import DeepgramSTT  # LIVE — ticket 2.08
 from app.providers.deepgram_tts import DeepgramTTS  # LIVE — ticket 2.07
 from app.providers.stubs import (  # noqa: E402  (after model imports)
-    DeepgramSTT,
     DeepgramSTTEnterprise,
     DeepgramTTSEnterprise,
     DeepSeekNativeLLM,

@@ -1,7 +1,8 @@
-"""Unit tests for the provider abstraction layer (2.06) and DeepgramTTS (2.07)."""
+"""Unit tests for provider layer (2.06), DeepgramTTS (2.07), DeepgramSTT (2.08)."""
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
@@ -171,15 +172,17 @@ class TestMakePipeline:
 
 
 class TestStubsRaiseNotImplemented:
-    def test_deepgram_stt_connect_raises(self):
-        import asyncio
+    def test_deepgram_stt_missing_api_key_raises(self):
 
-        with pytest.raises(NotImplementedError, match="DeepgramSTT"):
+        with (
+            patch("app.providers.deepgram_stt.get_settings") as mock_settings,
+            pytest.raises(RuntimeError, match="DEEPGRAM_API_KEY"),
+        ):
+            mock_settings.return_value.deepgram_api_key = ""
             asyncio.run(DeepgramSTT().connect("en"))
 
     def test_deepgram_tts_missing_api_key_raises(self):
         """DeepgramTTS is live (ticket 2.07) — fails fast when API key is absent."""
-        import asyncio
 
         async def _run():
             gen = DeepgramTTS().synthesize("hello", "aura-asteria-en", "en")
@@ -193,32 +196,27 @@ class TestStubsRaiseNotImplemented:
             asyncio.run(_run())
 
     def test_deepseek_chat_raises(self):
-        import asyncio
 
         with pytest.raises(NotImplementedError, match="DeepSeekNativeLLM"):
             asyncio.run(DeepSeekNativeLLM().chat([], [], max_tokens=10))
 
     def test_sarvam_stt_raises(self):
-        import asyncio
 
         with pytest.raises(NotImplementedError, match="SarvamSTT"):
             asyncio.run(SarvamSTT().connect("hi"))
 
     def test_together_deepseek_raises(self):
-        import asyncio
 
         with pytest.raises(NotImplementedError, match="TogetherDeepSeekLLM"):
             asyncio.run(TogetherDeepSeekLLM().chat([], []))
 
     def test_deepgram_enterprise_stt_raises(self):
-        import asyncio
 
         with pytest.raises(NotImplementedError, match="DeepgramSTTEnterprise"):
             asyncio.run(DeepgramSTTEnterprise().connect("en"))
 
     def test_error_message_mentions_phase(self):
         """Stub errors must name the implementing phase."""
-        import asyncio
 
         try:
             asyncio.run(SarvamSTT().connect("hi"))
@@ -610,3 +608,252 @@ class TestDeepgramTtsSdkCallShape:
         assert call_kwargs["model"] == _DEFAULT_VOICE
         assert call_kwargs["encoding"] == _ENCODING
         assert call_kwargs["sample_rate"] == _SAMPLE_RATE
+
+
+# ---------------------------------------------------------------------------
+# DeepgramSTT helpers (ticket 2.08)
+# ---------------------------------------------------------------------------
+
+
+async def _collect_transcripts(gen: AsyncIterator) -> list:
+    from app.providers.base import Transcript
+
+    return [t async for t in gen if isinstance(t, Transcript)]
+
+
+def _make_listen_results(
+    *,
+    text: str,
+    is_final: bool,
+    confidence: float = 0.92,
+):
+    from deepgram.listen.v1.types import (
+        ListenV1Results,
+        ListenV1ResultsChannel,
+        ListenV1ResultsChannelAlternativesItem,
+        ListenV1ResultsChannelAlternativesItemWordsItem,
+        ListenV1ResultsMetadata,
+        ListenV1ResultsMetadataModelInfo,
+    )
+
+    words = [
+        ListenV1ResultsChannelAlternativesItemWordsItem(
+            word=token,
+            start=float(i),
+            end=float(i) + 0.25,
+            confidence=confidence,
+        )
+        for i, token in enumerate(text.split() or ["silence"])
+    ]
+    alternative = ListenV1ResultsChannelAlternativesItem(
+        transcript=text,
+        confidence=confidence,
+        words=words,
+    )
+    return ListenV1Results(
+        channel_index=[0, 1],
+        duration=1.0,
+        start=0.0,
+        is_final=is_final,
+        speech_final=is_final,
+        channel=ListenV1ResultsChannel(alternatives=[alternative]),
+        metadata=ListenV1ResultsMetadata(
+            request_id="test-request-id",
+            model_info=ListenV1ResultsMetadataModelInfo(
+                name="nova-3",
+                version="1.0",
+                arch="nova",
+            ),
+            model_uuid="test-model-uuid",
+        ),
+    )
+
+
+async def _pcm_chunks(*chunks: bytes):
+    for chunk in chunks:
+        yield chunk
+
+
+class _FakeConnectCm:
+    def __init__(self, socket: AsyncMock) -> None:
+        self._socket = socket
+
+    async def __aenter__(self) -> AsyncMock:
+        return self._socket
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# DeepgramSTT constants (ticket 2.08)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramSttConstants:
+    def test_model_is_nova3(self):
+        from app.providers.deepgram_stt import _MODEL
+
+        assert _MODEL == "nova-3"
+
+    def test_sample_rate_is_16000(self):
+        from app.providers.deepgram_stt import _SAMPLE_RATE
+
+        assert _SAMPLE_RATE == 16000
+
+    def test_endpointing_is_300ms(self):
+        from app.providers.deepgram_stt import _ENDPOINTING_MS
+
+        assert _ENDPOINTING_MS == 300
+
+    def test_normalize_language_maps_en_in(self):
+        from app.providers.deepgram_stt import _normalize_language
+
+        assert _normalize_language("en-IN") == "en"
+
+
+# ---------------------------------------------------------------------------
+# DeepgramSTT message parsing (ticket 2.08)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramSttParseMessage:
+    def test_partial_transcript_parsed(self):
+        stt = DeepgramSTT()
+        msg = _make_listen_results(text="hello", is_final=False, confidence=0.7)
+        t = stt._parse_message(msg)
+        assert t is not None
+        assert t.text == "hello"
+        assert t.is_final is False
+        assert t.confidence == 0.7
+
+    def test_final_transcript_parsed(self):
+        stt = DeepgramSTT()
+        msg = _make_listen_results(text="hello world", is_final=True, confidence=0.95)
+        t = stt._parse_message(msg)
+        assert t is not None
+        assert t.is_final is True
+        assert t.confidence == 0.95
+
+    def test_empty_partial_skipped(self):
+        stt = DeepgramSTT()
+        msg = _make_listen_results(text="   ", is_final=False)
+        assert stt._parse_message(msg) is None
+
+
+# ---------------------------------------------------------------------------
+# DeepgramSTT streaming (ticket 2.08)
+# ---------------------------------------------------------------------------
+
+
+class TestDeepgramSttStreaming:
+    async def test_partial_before_final(self):
+        partial = _make_listen_results(text="hel", is_final=False)
+        final = _make_listen_results(text="hello", is_final=True, confidence=0.91)
+
+        recv_queue = [partial, final]
+
+        def _recv_messages():
+            if recv_queue:
+                return recv_queue.pop(0)
+            raise TimeoutError()
+
+        mock_socket = AsyncMock()
+        mock_socket.recv = AsyncMock(side_effect=_recv_messages)
+        mock_socket.send_media = AsyncMock()
+        mock_socket.send_finalize = AsyncMock()
+        mock_socket.send_close_stream = AsyncMock()
+
+        mock_client = MagicMock()
+        mock_client.listen.v1.connect = MagicMock(
+            return_value=_FakeConnectCm(mock_socket)
+        )
+
+        stt = DeepgramSTT()
+        with (
+            patch(
+                "app.providers.deepgram_stt.AsyncDeepgramClient",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepgram_stt.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepgram_api_key = "test-key"
+            await stt.connect("en")
+            transcripts = await _collect_transcripts(
+                stt.stream(_pcm_chunks(b"\x00\x00" * 320))
+            )
+            await stt.close()
+
+        assert len(transcripts) == 2
+        assert transcripts[0].is_final is False
+        assert transcripts[1].is_final is True
+        assert transcripts[1].confidence >= 0.85
+        connect_kwargs = mock_client.listen.v1.connect.call_args.kwargs
+        assert connect_kwargs["model"] == "nova-3"
+        assert connect_kwargs["language"] == "en"
+        assert connect_kwargs["interim_results"] is True
+        assert connect_kwargs["smart_format"] is True
+        assert connect_kwargs["endpointing"] == 300
+        assert connect_kwargs["vad_events"] is True
+
+    async def test_stream_requires_connect(self):
+        stt = DeepgramSTT()
+        with pytest.raises(RuntimeError, match="connect\\(\\) must be called"):
+            await _collect_transcripts(stt.stream(_pcm_chunks(b"\x00")))
+
+    async def test_reconnect_on_close_code_1006(self):
+        from websockets.exceptions import ConnectionClosed
+        from websockets.frames import Close
+
+        partial = _make_listen_results(text="hi", is_final=False)
+        final = _make_listen_results(text="hi there", is_final=True, confidence=0.9)
+        disconnect = ConnectionClosed(Close(1006, "abnormal"), None)
+
+        sockets: list[AsyncMock] = []
+
+        failing_socket = AsyncMock()
+        failing_socket.recv = AsyncMock(side_effect=TimeoutError)
+        failing_socket.send_media = AsyncMock(side_effect=disconnect)
+        failing_socket.send_finalize = AsyncMock()
+        failing_socket.send_close_stream = AsyncMock()
+        sockets.append(failing_socket)
+
+        recovery_queue = [partial, final]
+
+        def _recovery_recv():
+            if recovery_queue:
+                return recovery_queue.pop(0)
+            raise TimeoutError()
+
+        recovery_socket = AsyncMock()
+        recovery_socket.recv = AsyncMock(side_effect=_recovery_recv)
+        recovery_socket.send_media = AsyncMock()
+        recovery_socket.send_finalize = AsyncMock()
+        recovery_socket.send_close_stream = AsyncMock()
+        sockets.append(recovery_socket)
+
+        socket_iter = iter(sockets)
+
+        def _make_cm(*args: Any, **kwargs: Any) -> _FakeConnectCm:
+            return _FakeConnectCm(next(socket_iter))
+
+        mock_client = MagicMock()
+        mock_client.listen.v1.connect = MagicMock(side_effect=_make_cm)
+
+        stt = DeepgramSTT()
+        with (
+            patch(
+                "app.providers.deepgram_stt.AsyncDeepgramClient",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepgram_stt.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepgram_api_key = "test-key"
+            await stt.connect("en")
+            transcripts = await _collect_transcripts(
+                stt.stream(_pcm_chunks(b"\x00\x00" * 320))
+            )
+            await stt.close()
+
+        assert mock_client.listen.v1.connect.call_count == 2
+        assert any(t.is_final for t in transcripts)

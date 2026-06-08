@@ -2,7 +2,8 @@
 
 Phase map
 ---------
-Phase 2  (current)  : DeepgramSTT  (stub — ticket 2.07)             — STT placeholder
+Phase 2  (LIVE)     : DeepgramSTT  → real impl in deepgram_stt.py
+                    : Nova-3 streaming STT (ticket 2.08)
 Phase 2  (LIVE)     : DeepgramTTS  → real impl in deepgram_tts.py
                     : Aura-1 streaming TTS (ticket 2.07)
 Phase 2  (stub)     : DeepSeekNativeLLM                             — LLM placeholder
@@ -19,7 +20,8 @@ from collections.abc import AsyncIterator
 
 from app.providers.base import LLMResponse, Message, Transcript
 
-# Re-export the real Deepgram Aura-1 TTS implementation (ticket 2.07)
+# Re-export live Deepgram implementations (tickets 2.07, 2.08)
+from app.providers.deepgram_stt import DeepgramSTT  # noqa: F401  (re-export)
 from app.providers.deepgram_tts import DeepgramTTS  # noqa: F401  (re-export)
 
 # ---------------------------------------------------------------------------
@@ -40,27 +42,8 @@ def _not_implemented(cls_name: str, phase: str) -> NotImplementedError:
 # ---------------------------------------------------------------------------
 
 
-class DeepgramSTT:
-    """Deepgram Nova-3 STT — India English / US English / Global English.
-
-    Real implementation: ticket 2.07 (Pipecat pipeline wiring).
-    """
-
-    async def connect(self, language: str) -> None:
-        raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
-
-    async def stream(
-        self,
-        audio_chunks: AsyncIterator[bytes],
-    ) -> AsyncIterator[Transcript]:
-        raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
-        yield  # make the type-checker happy
-
-    async def close(self) -> None:
-        raise _not_implemented("DeepgramSTT", "Phase 2 (ticket 2.07)")
-
-
-# DeepgramTTS is now a LIVE implementation imported above from deepgram_tts.py.
+# DeepgramSTT is a LIVE implementation imported above from deepgram_stt.py.
+# DeepgramTTS is a LIVE implementation imported above from deepgram_tts.py.
 # The class is re-exported so that existing code importing from stubs.py continues
 # to work unchanged.  See app/providers/deepgram_tts.py for full source.
 
