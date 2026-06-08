@@ -13,6 +13,7 @@ app/providers/
 ├── __init__.py      # Public API — import from here
 ├── base.py          # STTProvider, TTSProvider, LLMProvider protocols + shared models
 ├── registry.py      # PROVIDERS dict + Pipeline dataclass + make_pipeline() factory
+├── deepgram_stt.py  # Deepgram Nova-3 STT (ticket 2.08)
 ├── deepgram_tts.py  # Deepgram Aura-1 TTS (ticket 2.07)
 └── stubs.py         # Stub classes for every concrete implementation
 ```
@@ -35,13 +36,13 @@ Shared models: `Transcript`, `Message`, `ToolCall`, `LLMResponse`.
 
 ## Concrete implementations by market
 
-| Market             | STT key        | TTS key        | LLM key             | Status                    |
-| ------------------ | -------------- | -------------- | ------------------- | ------------------------- |
-| **India English**  | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ TTS LIVE (ticket 2.07) |
-| **India Hindi**    | `sarvam`       | `sarvam`       | `deepseek_native`   | 🔜 Phase 3                |
-| **US English**     | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ TTS LIVE (ticket 2.07) |
-| **US HIPAA**       | `deepgram_baa` | `deepgram_baa` | `together_deepseek` | 🔜 Phase 3 (BAA required) |
-| **Global English** | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ TTS LIVE (ticket 2.07) |
+| Market             | STT key        | TTS key        | LLM key             | Status                      |
+| ------------------ | -------------- | -------------- | ------------------- | --------------------------- |
+| **India English**  | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS LIVE (2.08/2.07) |
+| **India Hindi**    | `sarvam`       | `sarvam`       | `deepseek_native`   | 🔜 Phase 3                  |
+| **US English**     | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS LIVE (2.08/2.07) |
+| **US HIPAA**       | `deepgram_baa` | `deepgram_baa` | `together_deepseek` | 🔜 Phase 3 (BAA required)   |
+| **Global English** | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS LIVE (2.08/2.07) |
 
 ---
 
@@ -93,6 +94,25 @@ The next call that tenant receives will use the new provider. No restart needed.
 | Phase 3           | `SarvamSTT`, `SarvamTTS` (India Hindi market)                                             |
 | Phase 3           | `DeepgramSTTEnterprise`, `DeepgramTTSEnterprise`, `TogetherDeepSeekLLM` (US HIPAA)        |
 | Phase 4           | `OpenAIRealtimeSTT`, `OpenAITTS`, `ElevenLabsTTS`, `OpenAIGPT5MiniLLM`                    |
+
+---
+
+## Deepgram Nova-3 STT configuration
+
+> Ticket 2.08 — streaming STT for India/US/Global English markets.
+
+| Setting           | Value      | Notes                                      |
+| ----------------- | ---------- | ------------------------------------------ |
+| Model             | `nova-3`   | Monolingual English                        |
+| Language          | `en`       | India English via Nova-3 monolingual model |
+| Encoding          | `linear16` | PCM 16-bit                                 |
+| Sample rate       | `16000` Hz | Matches Pipecat Twilio serializer output   |
+| `smart_format`    | `true`     | Punctuation + formatting                   |
+| `endpointing`     | `300` ms   | Utterance boundary detection               |
+| `interim_results` | `true`     | Partial transcripts before finals          |
+| `vad_events`      | `true`     | Speech-started / utterance-end events      |
+
+Billing: **$0.0048 / minute** PAYG — confirm on first dev-call invoice.
 
 ---
 
