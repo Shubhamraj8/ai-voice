@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -41,6 +42,7 @@ from app.providers.stubs import (
     SarvamTTS,
     TogetherDeepSeekLLM,
 )
+from openai import RateLimitError
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -195,9 +197,12 @@ class TestStubsRaiseNotImplemented:
             mock_settings.return_value.deepgram_api_key = ""
             asyncio.run(_run())
 
-    def test_deepseek_chat_raises(self):
-
-        with pytest.raises(NotImplementedError, match="DeepSeekNativeLLM"):
+    def test_deepseek_missing_api_key_raises(self):
+        with (
+            patch("app.providers.deepseek_llm.get_settings") as mock_settings,
+            pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"),
+        ):
+            mock_settings.return_value.deepseek_api_key = ""
             asyncio.run(DeepSeekNativeLLM().chat([], [], max_tokens=10))
 
     def test_sarvam_stt_raises(self):
@@ -857,3 +862,192 @@ class TestDeepgramSttStreaming:
 
         assert mock_client.listen.v1.connect.call_count == 2
         assert any(t.is_final for t in transcripts)
+
+
+# ---------------------------------------------------------------------------
+# DeepSeekNativeLLM (ticket 2.09)
+# ---------------------------------------------------------------------------
+
+
+def _make_chat_completion(
+    *,
+    text: str = "Hello! I am your voice assistant.",
+    tool_calls: list | None = None,
+    cached_tokens: int = 0,
+) -> MagicMock:
+    message = MagicMock()
+    message.content = text
+    message.tool_calls = tool_calls
+
+    usage = SimpleNamespace(
+        prompt_tokens=42,
+        completion_tokens=18,
+        total_tokens=60,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=cached_tokens),
+    )
+
+    choice = MagicMock()
+    choice.message = message
+
+    completion = MagicMock()
+    completion.choices = [choice]
+    completion.usage = usage
+    completion.model = "deepseek-v4-flash"
+    return completion
+
+
+class TestDeepSeekLlmConstants:
+    def test_default_model_is_v4_flash(self):
+        from app.providers.deepseek_llm import _DEFAULT_MODEL
+
+        assert _DEFAULT_MODEL == "deepseek-v4-flash"
+
+
+class TestDeepSeekLlmChat:
+    async def test_chat_returns_text_response(self):
+        from app.providers.base import Message
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=_make_chat_completion()
+        )
+
+        llm = DeepSeekNativeLLM()
+        with (
+            patch(
+                "app.providers.deepseek_llm.AsyncOpenAI",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepseek_llm.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepseek_api_key = "test-key"
+            mock_settings.return_value.deepseek_base_url = "https://api.deepseek.com"
+            mock_settings.return_value.deepseek_model = "deepseek-v4-flash"
+            mock_settings.return_value.deepseek_timeout_s = 30.0
+            response = await llm.chat(
+                messages=[Message(role="user", content="Hello, who are you?")],
+                tools=[],
+                max_tokens=100,
+            )
+
+        assert "voice assistant" in response.text
+        assert response.tool_calls == []
+        assert response.usage["prompt_tokens"] == 42
+        mock_client.chat.completions.create.assert_awaited_once()
+        call_kwargs = mock_client.chat.completions.create.await_args.kwargs
+        assert call_kwargs["model"] == "deepseek-v4-flash"
+        assert call_kwargs["max_tokens"] == 100
+
+    async def test_tool_calling_parsed(self):
+        from app.providers.base import Message
+
+        tool_call = MagicMock()
+        tool_call.id = "call_123"
+        tool_call.function.name = "get_weather"
+        tool_call.function.arguments = '{"city": "Mumbai"}'
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=_make_chat_completion(text="", tool_calls=[tool_call])
+        )
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            }
+        ]
+
+        llm = DeepSeekNativeLLM()
+        with (
+            patch(
+                "app.providers.deepseek_llm.AsyncOpenAI",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepseek_llm.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepseek_api_key = "test-key"
+            mock_settings.return_value.deepseek_base_url = "https://api.deepseek.com"
+            mock_settings.return_value.deepseek_model = "deepseek-v4-flash"
+            mock_settings.return_value.deepseek_timeout_s = 30.0
+            response = await llm.chat(
+                messages=[Message(role="user", content="Weather in Mumbai?")],
+                tools=tools,
+            )
+
+        assert len(response.tool_calls) == 1
+        assert response.tool_calls[0].name == "get_weather"
+        assert response.tool_calls[0].arguments == {"city": "Mumbai"}
+        assert mock_client.chat.completions.create.await_args.kwargs["tools"] == tools
+
+    async def test_cache_hit_tokens_in_usage(self):
+        from app.providers.base import Message
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=_make_chat_completion(cached_tokens=35)
+        )
+
+        llm = DeepSeekNativeLLM()
+        with (
+            patch(
+                "app.providers.deepseek_llm.AsyncOpenAI",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepseek_llm.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.deepseek_api_key = "test-key"
+            mock_settings.return_value.deepseek_base_url = "https://api.deepseek.com"
+            mock_settings.return_value.deepseek_model = "deepseek-v4-flash"
+            mock_settings.return_value.deepseek_timeout_s = 30.0
+            response = await llm.chat(
+                messages=[
+                    Message(role="system", content="You are a helpful assistant."),
+                    Message(role="user", content="Hello again."),
+                ],
+                tools=[],
+            )
+
+        assert response.usage["cached_tokens"] == 35
+
+    async def test_rate_limit_retries_with_backoff(self):
+        from app.providers.base import Message
+
+        rate_error = RateLimitError(
+            message="rate limit",
+            response=MagicMock(headers={}),
+            body=None,
+        )
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            side_effect=[rate_error, _make_chat_completion(text="Recovered.")]
+        )
+
+        llm = DeepSeekNativeLLM()
+        with (
+            patch(
+                "app.providers.deepseek_llm.AsyncOpenAI",
+                return_value=mock_client,
+            ),
+            patch("app.providers.deepseek_llm.get_settings") as mock_settings,
+            patch(
+                "app.providers.deepseek_llm.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            mock_settings.return_value.deepseek_api_key = "test-key"
+            mock_settings.return_value.deepseek_base_url = "https://api.deepseek.com"
+            mock_settings.return_value.deepseek_model = "deepseek-v4-flash"
+            mock_settings.return_value.deepseek_timeout_s = 30.0
+            response = await llm.chat(
+                messages=[Message(role="user", content="Hello")],
+                tools=[],
+            )
+
+        assert response.text == "Recovered."
+        assert mock_client.chat.completions.create.await_count == 2
+        mock_sleep.assert_awaited_once()

@@ -15,6 +15,7 @@ app/providers/
 ├── registry.py      # PROVIDERS dict + Pipeline dataclass + make_pipeline() factory
 ├── deepgram_stt.py  # Deepgram Nova-3 STT (ticket 2.08)
 ├── deepgram_tts.py  # Deepgram Aura-1 TTS (ticket 2.07)
+├── deepseek_llm.py  # DeepSeek V4 Flash LLM (ticket 2.09)
 └── stubs.py         # Stub classes for every concrete implementation
 ```
 
@@ -36,13 +37,13 @@ Shared models: `Transcript`, `Message`, `ToolCall`, `LLMResponse`.
 
 ## Concrete implementations by market
 
-| Market             | STT key        | TTS key        | LLM key             | Status                      |
-| ------------------ | -------------- | -------------- | ------------------- | --------------------------- |
-| **India English**  | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS LIVE (2.08/2.07) |
-| **India Hindi**    | `sarvam`       | `sarvam`       | `deepseek_native`   | 🔜 Phase 3                  |
-| **US English**     | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS LIVE (2.08/2.07) |
-| **US HIPAA**       | `deepgram_baa` | `deepgram_baa` | `together_deepseek` | 🔜 Phase 3 (BAA required)   |
-| **Global English** | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS LIVE (2.08/2.07) |
+| Market             | STT key        | TTS key        | LLM key             | Status                               |
+| ------------------ | -------------- | -------------- | ------------------- | ------------------------------------ |
+| **India English**  | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS+LLM LIVE (2.08/2.07/2.09) |
+| **India Hindi**    | `sarvam`       | `sarvam`       | `deepseek_native`   | 🔜 Phase 3                           |
+| **US English**     | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS+LLM LIVE (2.08/2.07/2.09) |
+| **US HIPAA**       | `deepgram_baa` | `deepgram_baa` | `together_deepseek` | 🔜 Phase 3 (BAA required)            |
+| **Global English** | `deepgram`     | `deepgram`     | `deepseek_native`   | ✅ STT+TTS+LLM LIVE (2.08/2.07/2.09) |
 
 ---
 
@@ -113,6 +114,21 @@ The next call that tenant receives will use the new provider. No restart needed.
 | `vad_events`      | `true`     | Speech-started / utterance-end events      |
 
 Billing: **$0.0048 / minute** PAYG — confirm on first dev-call invoice.
+
+---
+
+## DeepSeek V4 Flash LLM configuration
+
+> Ticket 2.09 — OpenAI-compatible native API for all v1 markets.
+
+| Setting  | Default                    | Notes                                     |
+| -------- | -------------------------- | ----------------------------------------- |
+| Base URL | `https://api.deepseek.com` | OpenAI SDK compatible                     |
+| Model    | `deepseek-v4-flash`        | Fast route for voice turns                |
+| Timeout  | `30` s                     | Configurable via `DEEPSEEK_TIMEOUT_S`     |
+| Caching  | Stable system prompt       | Repeat calls log `cached_tokens` in usage |
+
+Billing (deepseek-v4-flash, per 1M tokens): cache hit $0.0028 · cache miss $0.14 · output $0.28.
 
 ---
 
