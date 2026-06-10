@@ -14,9 +14,17 @@ from app.services.voice.audio_conversion import (
     twilio_mulaw_to_pcm_at_rate,
     twilio_mulaw_to_stt_pcm,
 )
+from app.services.voice.conversation_config import (
+    MAX_CONVERSATION_TURNS,
+    MAX_LLM_OUTPUT_TOKENS,
+    SYSTEM_PROMPT,
+    build_llm_context,
+    trim_conversation_history,
+)
 from app.services.voice.pipeline import (
     HELLO_SAMPLE_RATE,
     _build_deepgram_stt_settings,
+    _normalize_deepseek_base_url,
     generate_hello_audio_pcm,
 )
 from app.services.voice.turn_config import (
@@ -242,3 +250,80 @@ def test_vad_and_turn_imports():
 
     from pipecat.processors.audio.vad_processor import VADProcessor  # noqa: F401
     from pipecat.turns.user_turn_processor import UserTurnProcessor  # noqa: F401
+
+
+def test_conversation_config_defaults():
+
+    context = build_llm_context()
+
+    assert context.messages[0]["role"] == "system"
+
+    assert SYSTEM_PROMPT in context.messages[0]["content"]
+
+    assert MAX_CONVERSATION_TURNS == 10
+
+    assert MAX_LLM_OUTPUT_TOKENS == 200
+
+
+def test_trim_conversation_history_keeps_system_and_last_ten_turns():
+
+    context = build_llm_context()
+
+    for index in range(15):
+        context.add_message({"role": "user", "content": f"user-{index}"})
+        context.add_message({"role": "assistant", "content": f"assistant-{index}"})
+
+    trim_conversation_history(context, max_turns=10)
+
+    assert context.messages[0]["role"] == "system"
+
+    assert len(context.messages) == 1 + (10 * 2)
+
+    assert context.messages[1]["content"] == "user-5"
+
+    assert context.messages[-1]["content"] == "assistant-14"
+
+
+def test_normalize_deepseek_base_url_adds_v1_suffix():
+
+    assert (
+        _normalize_deepseek_base_url("https://api.deepseek.com")
+        == "https://api.deepseek.com/v1"
+    )
+
+    assert (
+        _normalize_deepseek_base_url("https://api.deepseek.com/v1")
+        == "https://api.deepseek.com/v1"
+    )
+
+
+def test_full_pipeline_llm_imports():
+
+    from pipecat.processors.aggregators.llm_response_universal import (  # noqa: F401
+        LLMContextAggregatorPair,
+    )
+    from pipecat.services.deepseek.llm import DeepSeekLLMService  # noqa: F401
+    from pipecat.turns.user_turn_strategies import (
+        ExternalUserTurnStrategies,  # noqa: F401
+    )
+
+
+def test_build_deepseek_llm_service_uses_app_settings(monkeypatch):
+
+    from app.config import Settings
+    from app.services.voice.pipeline import _build_deepseek_llm_service
+
+    settings = Settings(
+        database_url="postgresql://example",
+        supabase_url="https://example.supabase.co",
+        supabase_service_role_key="key",
+        deepseek_api_key="sk-test",
+        deepseek_base_url="https://api.deepseek.com",
+        deepseek_model="deepseek-v4-flash",
+    )
+
+    llm = _build_deepseek_llm_service(settings)
+
+    assert llm._settings.model == "deepseek-v4-flash"
+
+    assert llm._settings.max_tokens == MAX_LLM_OUTPUT_TOKENS

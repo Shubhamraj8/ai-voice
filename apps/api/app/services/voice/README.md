@@ -1,15 +1,38 @@
-# Voice pipeline tuning (tickets 2.10, 2.11)
+# Voice pipeline (tickets 2.10–2.12)
 
-The Twilio ↔ Pipecat pipeline lives in `pipeline.py`. VAD, turn detection, and
-barge-in parameters are centralized in `turn_config.py`.
+The Twilio ↔ Pipecat pipeline lives in `pipeline.py`.
 
-## Pipeline order
+## Full conversation pipeline (2.12)
+
+When both `DEEPGRAM_API_KEY` and `DEEPSEEK_API_KEY` are set:
+
+```
+transport.input → Silero VAD → Deepgram STT → UserTurnProcessor → LLM user aggregator → DeepSeek LLM → Deepgram TTS → buffer monitor → transport.output → LLM assistant aggregator
+```
+
+Conversation settings are in `conversation_config.py`. Per-turn logs
+(`conversation_turn_complete`) are emitted from `turn_logger.py` with
+`user_input`, `assistant_output`, `stt_ms`, `llm_ms`, `tts_first_byte_ms`,
+`total_ms`, and `tts_chars`.
+
+## Deepgram-only fallback (2.10, 2.11)
+
+When only `DEEPGRAM_API_KEY` is set:
 
 ```
 transport.input → Silero VAD → Deepgram STT → UserTurnProcessor → Deepgram TTS → buffer monitor → transport.output
 ```
 
-## Tunable parameters
+## Conversation parameters (2.12)
+
+| Parameter                 | Default             | Location                 | Purpose                                   |
+| ------------------------- | ------------------- | ------------------------ | ----------------------------------------- |
+| `SYSTEM_PROMPT`           | receptionist prompt | `conversation_config.py` | Hardcoded agent persona for dev calls     |
+| `MAX_CONVERSATION_TURNS`  | `10`                | `conversation_config.py` | User+assistant pairs kept in LLM context  |
+| `MAX_LLM_OUTPUT_TOKENS`   | `200`               | `conversation_config.py` | Concise reply budget for TTS cost control |
+| `CONNECT_GREETING_PROMPT` | connect greeting    | `conversation_config.py` | Synthetic first user message on connect   |
+
+## VAD / turn parameters (2.10, 2.11)
 
 | Parameter                    | Default  | Location         | Purpose                                                                                       |
 | ---------------------------- | -------- | ---------------- | --------------------------------------------------------------------------------------------- |
