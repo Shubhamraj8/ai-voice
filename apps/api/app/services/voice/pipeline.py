@@ -1,22 +1,33 @@
-"""Pipecat voice pipeline for Twilio Media Streams (tickets 2.04–2.11)."""
+"""Pipecat voice pipeline for Twilio Media Streams (tickets 2.04–2.12)."""
 
 from __future__ import annotations
 
 import math
 import struct
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import WebSocket
-from pipecat.frames.frames import OutputAudioRawFrame, TTSSpeakFrame
+from pipecat.frames.frames import (
+    LLMMessagesAppendFrame,
+    OutputAudioRawFrame,
+    TTSSpeakFrame,
+)
+from pipecat.observers.user_bot_latency_observer import UserBotLatencyObserver
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
+from pipecat.processors.aggregators.llm_response_universal import (
+    LLMContextAggregatorPair,
+    LLMUserAggregatorParams,
+)
 from pipecat.runner.utils import parse_telephony_websocket
 from pipecat.serializers.twilio import TwilioFrameSerializer
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
 )
+from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.workers.runner import WorkerRunner
 
 from app.services.voice.audio_config import (
@@ -25,6 +36,11 @@ from app.services.voice.audio_config import (
     TWILIO_SAMPLE_RATE,
 )
 from app.services.voice.buffer_monitor import AudioBufferUnderrunMonitor
+from app.services.voice.conversation_config import (
+    CONNECT_GREETING_PROMPT,
+    MAX_LLM_OUTPUT_TOKENS,
+    build_llm_context,
+)
 from app.services.voice.turn_config import (
     DEEPGRAM_ENDPOINTING_MS,
     DEEPGRAM_STT_LANGUAGE,
@@ -32,8 +48,17 @@ from app.services.voice.turn_config import (
     build_user_turn_processor,
     build_vad_processor,
 )
+from app.services.voice.turn_logger import (
+    attach_turn_logging,
+    build_turn_metrics_collector,
+)
 
 if TYPE_CHECKING:
+    from pipecat.processors.aggregators.llm_response_universal import (
+        LLMAssistantAggregator,
+        LLMUserAggregator,
+    )
+
     from app.config import Settings
 
 
@@ -49,13 +74,23 @@ HELLO_FREQUENCY_HZ = 523
 DEEPGRAM_CONNECT_GREETING = "Audio pipeline connected."
 
 
+@dataclass
+class ConversationPipeline:
+    """Built STT → LLM → TTS pipeline components."""
+
+    worker: PipelineWorker
+    user_aggregator: LLMUserAggregator
+    assistant_aggregator: LLMAssistantAggregator
+    latency_observer: UserBotLatencyObserver
+
+
 def generate_hello_audio_pcm(
     *,
     sample_rate: int = HELLO_SAMPLE_RATE,
     duration_secs: float = HELLO_DURATION_SECS,
     frequency_hz: int = HELLO_FREQUENCY_HZ,
 ) -> bytes:
-    """Generate a short PCM16 tone callers hear when Deepgram is not configured."""
+    """Generate a short PCM16 tone callers hear when providers are not configured."""
 
     sample_count = int(sample_rate * duration_secs)
 
@@ -126,10 +161,37 @@ def _build_deepgram_stt_settings():
     )
 
 
-def _build_deepgram_pipeline(
+def _normalize_deepseek_base_url(base_url: str) -> str:
+    """Ensure the DeepSeek OpenAI-compatible client gets a ``/v1`` suffix."""
+
+    normalized = base_url.rstrip("/")
+
+    if normalized.endswith("/v1"):
+        return normalized
+
+    return f"{normalized}/v1"
+
+
+def _build_deepseek_llm_service(settings: Settings):
+    """Build Pipecat's DeepSeek LLM service from app settings (ticket 2.09)."""
+
+    from pipecat.services.deepseek.llm import DeepSeekLLMService
+
+    return DeepSeekLLMService(
+        api_key=settings.deepseek_api_key,
+        base_url=_normalize_deepseek_base_url(settings.deepseek_base_url),
+        settings=DeepSeekLLMService.Settings(
+            model=settings.deepseek_model,
+            max_tokens=MAX_LLM_OUTPUT_TOKENS,
+        ),
+    )
+
+
+def _build_deepgram_only_pipeline(
     transport: FastAPIWebsocketTransport,
     settings: Settings,
-) -> tuple[Pipeline, PipelineWorker]:
+) -> PipelineWorker:
+    """STT + TTS without LLM — used when DeepSeek credentials are absent."""
 
     from pipecat.services.deepgram.stt import DeepgramSTTService
     from pipecat.services.deepgram.tts import DeepgramTTSService
@@ -151,6 +213,67 @@ def _build_deepgram_pipeline(
     )
 
     buffer_monitor = AudioBufferUnderrunMonitor()
+
+    pipeline = Pipeline(
+        [
+            transport.input(),
+            vad_processor,
+            stt,
+            user_turn_processor,
+            tts,
+            buffer_monitor,
+            transport.output(),
+        ]
+    )
+
+    return PipelineWorker(
+        pipeline,
+        params=PipelineParams(
+            audio_in_sample_rate=STT_INPUT_SAMPLE_RATE,
+            audio_out_sample_rate=TTS_OUTPUT_SAMPLE_RATE,
+        ),
+        enable_rtvi=False,
+    )
+
+
+def _build_conversation_pipeline(
+    transport: FastAPIWebsocketTransport,
+    settings: Settings,
+) -> ConversationPipeline:
+    """Wire Deepgram STT → DeepSeek LLM → Deepgram TTS with turn detection (2.12)."""
+
+    from pipecat.services.deepgram.stt import DeepgramSTTService
+    from pipecat.services.deepgram.tts import DeepgramTTSService
+
+    vad_processor = build_vad_processor(sample_rate=STT_INPUT_SAMPLE_RATE)
+    user_turn_processor = build_user_turn_processor()
+
+    stt = DeepgramSTTService(
+        api_key=settings.deepgram_api_key,
+        sample_rate=STT_INPUT_SAMPLE_RATE,
+        settings=_build_deepgram_stt_settings(),
+    )
+
+    llm = _build_deepseek_llm_service(settings)
+
+    tts = DeepgramTTSService(
+        api_key=settings.deepgram_api_key,
+        sample_rate=TTS_OUTPUT_SAMPLE_RATE,
+        encoding="linear16",
+        settings=DeepgramTTSService.Settings(voice=settings.deepgram_voice),
+    )
+
+    context = build_llm_context()
+
+    context_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(
+            user_turn_strategies=ExternalUserTurnStrategies(),
+        ),
+    )
+
+    buffer_monitor = AudioBufferUnderrunMonitor()
+    metrics_collector = build_turn_metrics_collector()
 
     @stt.event_handler("on_connected")
     async def on_stt_connected(stt_service) -> None:
@@ -185,9 +308,12 @@ def _build_deepgram_pipeline(
             vad_processor,
             stt,
             user_turn_processor,
+            context_aggregator.user(),
+            llm,
             tts,
             buffer_monitor,
             transport.output(),
+            context_aggregator.assistant(),
         ]
     )
 
@@ -196,27 +322,44 @@ def _build_deepgram_pipeline(
         params=PipelineParams(
             audio_in_sample_rate=STT_INPUT_SAMPLE_RATE,
             audio_out_sample_rate=TTS_OUTPUT_SAMPLE_RATE,
+            enable_metrics=True,
+            enable_usage_metrics=True,
         ),
+        observers=[metrics_collector],
+        enable_rtvi=False,
     )
 
-    return pipeline, worker
+    latency_observer = worker._user_bot_latency_observer
+
+    attach_turn_logging(
+        user_aggregator=context_aggregator.user(),
+        assistant_aggregator=context_aggregator.assistant(),
+        latency_observer=latency_observer,
+        metrics_collector=metrics_collector,
+    )
+
+    return ConversationPipeline(
+        worker=worker,
+        user_aggregator=context_aggregator.user(),
+        assistant_aggregator=context_aggregator.assistant(),
+        latency_observer=latency_observer,
+    )
 
 
 def _build_hello_tone_pipeline(
     transport: FastAPIWebsocketTransport,
-) -> tuple[Pipeline, PipelineWorker]:
+) -> PipelineWorker:
 
     pipeline = Pipeline([transport.input(), transport.output()])
 
-    worker = PipelineWorker(
+    return PipelineWorker(
         pipeline,
         params=PipelineParams(
             audio_in_sample_rate=TWILIO_SAMPLE_RATE,
             audio_out_sample_rate=TTS_OUTPUT_SAMPLE_RATE,
         ),
+        enable_rtvi=False,
     )
-
-    return pipeline, worker
 
 
 async def run_minimal_twilio_pipeline(
@@ -234,15 +377,24 @@ async def run_minimal_twilio_pipeline(
 
     call_id = call_data.get("call_id")
 
-    use_deepgram = bool(settings.deepgram_api_key)
+    use_full_pipeline = bool(settings.deepgram_api_key and settings.deepseek_api_key)
+
+    use_deepgram_only = bool(
+        settings.deepgram_api_key and not settings.deepseek_api_key
+    )
+
+    use_hello_tone = not settings.deepgram_api_key
 
     logger.info(
         "twilio_pipeline_starting",
         transport_type=transport_type,
         stream_id=stream_id,
         call_id=call_id,
-        deepgram_enabled=use_deepgram,
-        stt_sample_rate=STT_INPUT_SAMPLE_RATE if use_deepgram else TWILIO_SAMPLE_RATE,
+        full_pipeline_enabled=use_full_pipeline,
+        deepgram_only_enabled=use_deepgram_only,
+        stt_sample_rate=(
+            STT_INPUT_SAMPLE_RATE if not use_hello_tone else TWILIO_SAMPLE_RATE
+        ),
         tts_sample_rate=TTS_OUTPUT_SAMPLE_RATE,
     )
 
@@ -254,13 +406,20 @@ async def run_minimal_twilio_pipeline(
 
     transport = _build_transport(websocket, serializer)
 
-    if use_deepgram:
-        _, worker = _build_deepgram_pipeline(transport, settings)
+    conversation: ConversationPipeline | None = None
 
-        hello_pcm = None
+    hello_pcm: bytes | None = None
 
-    else:
-        _, worker = _build_hello_tone_pipeline(transport)
+    if use_full_pipeline:
+        conversation = _build_conversation_pipeline(transport, settings)
+
+        worker = conversation.worker
+
+    elif use_deepgram_only:
+        worker = _build_deepgram_only_pipeline(transport, settings)
+
+    elif use_hello_tone:
+        worker = _build_hello_tone_pipeline(transport)
 
         hello_pcm = generate_hello_audio_pcm()
 
@@ -271,10 +430,25 @@ async def run_minimal_twilio_pipeline(
             "twilio_pipeline_connected",
             stream_id=stream_id,
             call_id=call_id,
-            deepgram_enabled=use_deepgram,
+            full_pipeline_enabled=use_full_pipeline,
         )
 
-        if use_deepgram:
+        if use_full_pipeline and conversation is not None:
+            await conversation.worker.queue_frames(
+                [
+                    LLMMessagesAppendFrame(
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": CONNECT_GREETING_PROMPT,
+                            }
+                        ],
+                        run_llm=True,
+                    ),
+                ]
+            )
+
+        elif use_deepgram_only:
             await worker.queue_frames([TTSSpeakFrame(DEEPGRAM_CONNECT_GREETING)])
 
         elif hello_pcm is not None:
