@@ -16,7 +16,19 @@ from app.services.voice.audio_conversion import (
 )
 from app.services.voice.pipeline import (
     HELLO_SAMPLE_RATE,
+    _build_deepgram_stt_settings,
     generate_hello_audio_pcm,
+)
+from app.services.voice.turn_config import (
+    DEEPGRAM_ENDPOINTING_MS,
+    DEEPGRAM_STT_MODEL,
+    USER_TURN_END_TIMEOUT_SECS,
+    VAD_CONFIDENCE,
+    VAD_STOP_SECS,
+    build_user_turn_processor,
+    build_user_turn_strategies,
+    build_vad_params,
+    build_vad_processor,
 )
 
 
@@ -147,3 +159,86 @@ def test_buffer_monitor_imports():
     monitor = AudioBufferUnderrunMonitor()
 
     assert monitor._underrun_count == 0
+
+
+def test_vad_turn_config_defaults():
+
+    params = build_vad_params()
+
+    assert params.confidence == VAD_CONFIDENCE
+
+    assert params.stop_secs == VAD_STOP_SECS
+
+    assert USER_TURN_END_TIMEOUT_SECS == 0.8
+
+
+def test_vad_processor_uses_silero_at_stt_sample_rate():
+
+    from pipecat.audio.vad.silero import SileroVADAnalyzer
+    from pipecat.processors.audio.vad_processor import VADProcessor
+
+    processor = build_vad_processor(sample_rate=STT_INPUT_SAMPLE_RATE)
+
+    assert isinstance(processor, VADProcessor)
+
+    assert isinstance(processor._vad_controller._vad_analyzer, SileroVADAnalyzer)
+
+    analyzer = processor._vad_controller._vad_analyzer
+
+    assert analyzer._init_sample_rate == STT_INPUT_SAMPLE_RATE
+
+
+def test_user_turn_strategies_enable_barge_in_and_speech_timeout():
+
+    from pipecat.turns.user_start import VADUserTurnStartStrategy
+    from pipecat.turns.user_stop import SpeechTimeoutUserTurnStopStrategy
+
+    strategies = build_user_turn_strategies()
+
+    assert len(strategies.start) == 1
+
+    assert isinstance(strategies.start[0], VADUserTurnStartStrategy)
+
+    assert strategies.start[0]._enable_interruptions is True
+
+    assert len(strategies.stop) == 1
+
+    assert isinstance(strategies.stop[0], SpeechTimeoutUserTurnStopStrategy)
+
+    assert strategies.stop[0]._user_speech_timeout == USER_TURN_END_TIMEOUT_SECS
+
+
+def test_user_turn_processor_wires_strategies():
+
+    processor = build_user_turn_processor()
+
+    stop_strategy = processor._user_turn_controller._user_turn_strategies.stop[0]
+
+    assert stop_strategy._user_speech_timeout == 0.8
+
+
+def test_deepgram_stt_settings_for_turn_detection():
+
+    from pipecat.services.settings import is_given
+
+    settings = _build_deepgram_stt_settings()
+
+    assert is_given(settings.model)
+
+    assert settings.model == DEEPGRAM_STT_MODEL
+
+    assert is_given(settings.smart_format)
+
+    assert settings.smart_format is True
+
+    assert is_given(settings.endpointing)
+
+    assert settings.endpointing == DEEPGRAM_ENDPOINTING_MS
+
+    assert settings.extra["vad_events"] is True
+
+
+def test_vad_and_turn_imports():
+
+    from pipecat.processors.audio.vad_processor import VADProcessor  # noqa: F401
+    from pipecat.turns.user_turn_processor import UserTurnProcessor  # noqa: F401
