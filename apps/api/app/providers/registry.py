@@ -24,10 +24,10 @@ from app.providers.base import LLMProvider, STTProvider, TTSProvider
 # ---------------------------------------------------------------------------
 from app.providers.deepgram_stt import DeepgramSTT  # LIVE — ticket 2.08
 from app.providers.deepgram_tts import DeepgramTTS  # LIVE — ticket 2.07
+from app.providers.deepseek_llm import DeepSeekNativeLLM  # LIVE — ticket 2.09
 from app.providers.stubs import (  # noqa: E402  (after model imports)
     DeepgramSTTEnterprise,
     DeepgramTTSEnterprise,
-    DeepSeekNativeLLM,
     ElevenLabsTTS,
     OpenAIGPT5MiniLLM,
     OpenAIRealtimeSTT,

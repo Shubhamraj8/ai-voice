@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     deepgram_api_key: str = ""
     deepgram_voice: str = "aura-2-helena-en"
 
+    # DeepSeek (ticket 2.09) — V4 Flash via OpenAI-compatible native API
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-v4-flash"
+    deepseek_timeout_s: float = 30.0
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 

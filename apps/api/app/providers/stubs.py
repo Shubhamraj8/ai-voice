@@ -6,7 +6,8 @@ Phase 2  (LIVE)     : DeepgramSTT  → real impl in deepgram_stt.py
                     : Nova-3 streaming STT (ticket 2.08)
 Phase 2  (LIVE)     : DeepgramTTS  → real impl in deepgram_tts.py
                     : Aura-1 streaming TTS (ticket 2.07)
-Phase 2  (stub)     : DeepSeekNativeLLM                             — LLM placeholder
+Phase 2  (LIVE)     : DeepSeekNativeLLM → real impl in deepseek_llm.py
+                    : V4 Flash via native API (ticket 2.09)
 Phase 3  (next)     : SarvamSTT, SarvamTTS                          — India Hindi market
 Phase 3  (next)     : DeepgramSTTEnterprise, DeepgramTTSEnterprise   — US HIPAA BAA tier
 Phase 3  (next)     : TogetherDeepSeekLLM                            — US HIPAA LLM tier
@@ -20,9 +21,10 @@ from collections.abc import AsyncIterator
 
 from app.providers.base import LLMResponse, Message, Transcript
 
-# Re-export live Deepgram implementations (tickets 2.07, 2.08)
+# Re-export live provider implementations (tickets 2.07–2.09)
 from app.providers.deepgram_stt import DeepgramSTT  # noqa: F401  (re-export)
 from app.providers.deepgram_tts import DeepgramTTS  # noqa: F401  (re-export)
+from app.providers.deepseek_llm import DeepSeekNativeLLM  # noqa: F401  (re-export)
 
 # ---------------------------------------------------------------------------
 # Helper
@@ -48,19 +50,7 @@ def _not_implemented(cls_name: str, phase: str) -> NotImplementedError:
 # to work unchanged.  See app/providers/deepgram_tts.py for full source.
 
 
-class DeepSeekNativeLLM:
-    """DeepSeek V4 Flash via native API — all markets (v1 LLM).
-
-    Real implementation: ticket 2.07 (Pipecat pipeline wiring).
-    """
-
-    async def chat(
-        self,
-        messages: list[Message],
-        tools: list[dict],
-        max_tokens: int = 200,
-    ) -> LLMResponse:
-        raise _not_implemented("DeepSeekNativeLLM", "Phase 2 (ticket 2.07)")
+# DeepSeekNativeLLM is a LIVE implementation imported above from deepseek_llm.py.
 
 
 # ---------------------------------------------------------------------------

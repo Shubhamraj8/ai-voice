@@ -39,3 +39,6 @@ services:
       # Deepgram — Aura-1 TTS + Nova-3 STT (ticket 2.07)
       - key: DEEPGRAM_API_KEY
         sync: false
+      # DeepSeek — V4 Flash LLM (ticket 2.09)
+      - key: DEEPSEEK_API_KEY
+        sync: false
