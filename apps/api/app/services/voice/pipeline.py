@@ -1,4 +1,4 @@
-"""Pipecat voice pipeline for Twilio Media Streams (tickets 2.04, 2.05)."""
+"""Pipecat voice pipeline for Twilio Media Streams (tickets 2.04–2.11)."""
 
 from __future__ import annotations
 
@@ -25,6 +25,13 @@ from app.services.voice.audio_config import (
     TWILIO_SAMPLE_RATE,
 )
 from app.services.voice.buffer_monitor import AudioBufferUnderrunMonitor
+from app.services.voice.turn_config import (
+    DEEPGRAM_ENDPOINTING_MS,
+    DEEPGRAM_STT_LANGUAGE,
+    DEEPGRAM_STT_MODEL,
+    build_user_turn_processor,
+    build_vad_processor,
+)
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -104,6 +111,21 @@ def _build_transport(
     )
 
 
+def _build_deepgram_stt_settings():
+    """Deepgram Listen settings for provider layer (2.08) and turn detection (2.10)."""
+
+    from pipecat.services.deepgram.stt import DeepgramSTTService
+
+    return DeepgramSTTService.Settings(
+        model=DEEPGRAM_STT_MODEL,
+        language=DEEPGRAM_STT_LANGUAGE,
+        smart_format=True,
+        endpointing=DEEPGRAM_ENDPOINTING_MS,
+        interim_results=True,
+        extra={"vad_events": True},
+    )
+
+
 def _build_deepgram_pipeline(
     transport: FastAPIWebsocketTransport,
     settings: Settings,
@@ -112,9 +134,13 @@ def _build_deepgram_pipeline(
     from pipecat.services.deepgram.stt import DeepgramSTTService
     from pipecat.services.deepgram.tts import DeepgramTTSService
 
+    vad_processor = build_vad_processor(sample_rate=STT_INPUT_SAMPLE_RATE)
+    user_turn_processor = build_user_turn_processor()
+
     stt = DeepgramSTTService(
         api_key=settings.deepgram_api_key,
         sample_rate=STT_INPUT_SAMPLE_RATE,
+        settings=_build_deepgram_stt_settings(),
     )
 
     tts = DeepgramTTSService(
@@ -136,10 +162,29 @@ def _build_deepgram_pipeline(
 
         logger.info("deepgram_stt_disconnected")
 
+    @user_turn_processor.event_handler("on_user_turn_started")
+    async def on_user_turn_started(processor, strategy) -> None:
+
+        logger.info(
+            "user_turn_started",
+            strategy=type(strategy).__name__,
+            barge_in=True,
+        )
+
+    @user_turn_processor.event_handler("on_user_turn_stopped")
+    async def on_user_turn_stopped(processor, strategy) -> None:
+
+        logger.info(
+            "user_turn_stopped",
+            strategy=type(strategy).__name__,
+        )
+
     pipeline = Pipeline(
         [
             transport.input(),
+            vad_processor,
             stt,
+            user_turn_processor,
             tts,
             buffer_monitor,
             transport.output(),
