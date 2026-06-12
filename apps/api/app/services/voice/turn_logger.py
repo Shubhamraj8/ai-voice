@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 from pipecat.frames.frames import MetricsFrame
 from pipecat.metrics.metrics import (
@@ -21,7 +23,11 @@ from pipecat.processors.aggregators.llm_response_universal import (
 )
 from pipecat.processors.frame_processor import FrameDirection
 
+from app.services.calls import record_turn
 from app.services.voice.conversation_config import trim_conversation_history
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 logger = structlog.get_logger(__name__)
 
@@ -84,8 +90,15 @@ def attach_turn_logging(
     assistant_aggregator: LLMAssistantAggregator,
     latency_observer: UserBotLatencyObserver | None,
     metrics_collector: _TurnMetricsCollector,
+    call_id: UUID | None = None,
+    tenant_id: UUID | None = None,
 ) -> None:
-    """Wire aggregator and latency events to structured per-turn logs."""
+    """Wire aggregator and latency events to structured per-turn logs.
+
+    When ``call_id`` is provided (a persisted ``calls`` row exists), each turn
+    is also written to ``call_messages`` for ticket 2.13. DB writes are
+    best-effort and never interrupt the live call.
+    """
 
     state: dict[str, object] = {
         "turn_number": 0,
@@ -109,6 +122,14 @@ def attach_turn_logging(
             turn_number=state["turn_number"],
             user_input=message.content,
         )
+
+        if call_id is not None:
+            await record_turn(
+                call_id=call_id,
+                tenant_id=tenant_id,
+                role="user",
+                content=message.content,
+            )
 
     @assistant_aggregator.event_handler("on_assistant_turn_stopped")
     async def on_assistant_turn_stopped(
@@ -149,6 +170,16 @@ def attach_turn_logging(
             total_ms=total_ms,
             tts_chars=tts_chars,
         )
+
+        if call_id is not None:
+            await record_turn(
+                call_id=call_id,
+                tenant_id=tenant_id,
+                role="assistant",
+                content=message.content,
+                latency_ms=total_ms,
+                tts_chars=tts_chars,
+            )
 
         state["user_input"] = ""
         state["latency_ms"] = None

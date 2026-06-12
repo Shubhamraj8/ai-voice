@@ -4,6 +4,7 @@ import structlog
 from fastapi import APIRouter, Request, Response
 
 from app.config import get_settings
+from app.services.calls import build_provider_snapshot, end_call, start_call
 from app.webhooks.twilio_logging import STATUS_LOG_FIELDS, VOICE_LOG_FIELDS
 from app.webhooks.twilio_logging import twilio_payload_for_log as log_fields
 from app.webhooks.twilio_signature import validate_twilio_request
@@ -30,6 +31,14 @@ async def twilio_voice_webhook(request: Request) -> Response:
     stream_url = build_media_stream_url(settings)
     twiml = build_voice_connect_twiml(stream_url)
 
+    call_sid = params.get("CallSid", "")
+    if call_sid:
+        await start_call(
+            twilio_call_sid=call_sid,
+            from_number=params.get("From", ""),
+            provider_snapshot=build_provider_snapshot(settings),
+        )
+
     logger.info(
         "twilio_voice_webhook",
         stream_url=stream_url,
@@ -48,6 +57,15 @@ async def twilio_status_webhook(request: Request) -> Response:
     form = await request.form()
     params = {key: str(value) for key, value in form.multi_items()}
     validate_twilio_request(request, params)
+
+    if params.get("CallStatus") == "completed":
+        call_sid = params.get("CallSid", "")
+        raw_duration = params.get("CallDuration", "")
+        if call_sid:
+            await end_call(
+                twilio_call_sid=call_sid,
+                duration_secs=int(raw_duration) if raw_duration.isdigit() else None,
+            )
 
     logger.info(
         "twilio_status_webhook",
