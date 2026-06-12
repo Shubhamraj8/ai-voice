@@ -73,7 +73,12 @@ def get_tunnel_url(retries: int = 15, delay: float = 1.0) -> str:
 
 
 def update_twilio_webhook(public_url: str) -> None:
-    """Update the Twilio number's Voice URL to point at the ngrok tunnel."""
+    """Point the Twilio number's Voice URL and status callback at the tunnel.
+
+    The status callback is required for ticket 2.13 — Twilio posts the
+    ``completed`` call event to ``/webhooks/twilio/status`` so the call row is
+    closed promptly (otherwise only the stale-call reaper closes it).
+    """
     if not all([ACCOUNT_SID, AUTH_TOKEN, PHONE_NUMBER]):
         print(
             "[warn] Skipping Twilio auto-update — "
@@ -88,14 +93,21 @@ def update_twilio_webhook(public_url: str) -> None:
         return
 
     webhook_url = f"{public_url}/webhooks/twilio/voice"
+    status_url = f"{public_url}/webhooks/twilio/status"
     client = Client(ACCOUNT_SID, AUTH_TOKEN)
     numbers = client.incoming_phone_numbers.list(phone_number=PHONE_NUMBER)
     if not numbers:
         print(f"[warn] Phone number {PHONE_NUMBER} not found in Twilio account.")
         return
 
-    numbers[0].update(voice_url=webhook_url, voice_method="POST")
-    print(f"[twilio] Voice URL updated → {webhook_url}")
+    numbers[0].update(
+        voice_url=webhook_url,
+        voice_method="POST",
+        status_callback=status_url,
+        status_callback_method="POST",
+    )
+    print(f"[twilio] Voice URL updated      → {webhook_url}")
+    print(f"[twilio] Status callback updated → {status_url}")
 
 
 # ---------------------------------------------------------------------------
@@ -122,14 +134,16 @@ def main() -> None:
         sys.exit(1)
 
     webhook_url = f"{public_url}/webhooks/twilio/voice"
+    status_url = f"{public_url}/webhooks/twilio/status"
 
     print()
     print("=" * 60)
-    print(f"  ngrok tunnel:   {public_url}")
-    print(f"  Twilio webhook: {webhook_url}")
+    print(f"  ngrok tunnel:    {public_url}")
+    print(f"  Twilio webhook:  {webhook_url}")
+    print(f"  Status callback: {status_url}")
     print()
-    print("  Paste the webhook URL into Twilio Console:")
-    print("  Phone Numbers → Manage → Active Numbers → Voice URL")
+    print("  Paste these into Twilio Console (Phone Numbers → Manage →")
+    print("  Active Numbers): Voice URL, and 'Call status changes' callback.")
     print("=" * 60)
     print()
 
