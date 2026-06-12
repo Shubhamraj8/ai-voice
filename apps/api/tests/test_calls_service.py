@@ -172,3 +172,20 @@ async def test_close_stale_calls_swallows_error(monkeypatch):
     monkeypatch.setattr(calls, "get_pool", _boom)
 
     assert await calls.close_stale_calls(max_age_seconds=3600) == 0
+
+
+# --- set_recording_url (ticket 2.14) -----------------------------------------
+
+
+async def test_set_recording_url_updates_row(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    monkeypatch.setattr(calls, "get_pool", lambda: pool)
+
+    await calls.set_recording_url(
+        twilio_call_sid="CA123", path="recordings/tenant/call.mp3"
+    )
+
+    conn.execute.assert_awaited_once()
+    args = conn.execute.await_args.args
+    assert args[1] == "CA123"
+    assert args[2] == "recordings/tenant/call.mp3"

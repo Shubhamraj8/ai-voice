@@ -1,0 +1,86 @@
+"""Supabase Storage client for call recordings (ticket 2.14).
+
+Uses the service-role key (RLS bypass) to upload recordings and to mint
+short-lived signed URLs for playback. Object paths are relative to the
+recordings bucket, e.g. ``{tenant_id}/{call_id}.mp3``.
+"""
+
+from __future__ import annotations
+
+from urllib.parse import quote
+
+import httpx
+import structlog
+
+from app.config import get_settings
+
+logger = structlog.get_logger(__name__)
+
+
+def _auth_headers() -> dict[str, str]:
+    settings = get_settings()
+    return {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+    }
+
+
+async def upload_recording(
+    *,
+    path: str,
+    data: bytes,
+    content_type: str = "audio/mpeg",
+) -> bool:
+    """Upload bytes to ``recordings/{path}``; return True on success."""
+
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    object_url = (
+        f"{base}/storage/v1/object/{settings.recordings_bucket}/"
+        f"{quote(path, safe='/')}"
+    )
+    headers = {
+        **_auth_headers(),
+        "Content-Type": content_type,
+        # Overwrite if a recording for this call was already stored.
+        "x-upsert": "true",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(object_url, content=data, headers=headers)
+            response.raise_for_status()
+        logger.info("recording_uploaded", path=path, bytes=len(data))
+        return True
+    except Exception as exc:
+        logger.error("recording_upload_failed", path=path, error=str(exc))
+        return False
+
+
+async def create_signed_url(*, path: str, expires_in: int | None = None) -> str | None:
+    """Return a time-limited signed URL for ``recordings/{path}`` playback."""
+
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    ttl = expires_in if expires_in is not None else settings.recording_signed_url_ttl_s
+    sign_url = (
+        f"{base}/storage/v1/object/sign/{settings.recordings_bucket}/"
+        f"{quote(path, safe='/')}"
+    )
+    headers = {**_auth_headers(), "Content-Type": "application/json"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                sign_url, json={"expiresIn": ttl}, headers=headers
+            )
+            response.raise_for_status()
+            signed = response.json().get("signedURL")
+    except Exception as exc:
+        logger.error("recording_sign_failed", path=path, error=str(exc))
+        return None
+
+    if not signed:
+        return None
+    # The API returns a path like ``/object/sign/recordings/...?token=...``.
+    return f"{base}/storage/v1{signed}"

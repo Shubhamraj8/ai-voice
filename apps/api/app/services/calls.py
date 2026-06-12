@@ -197,6 +197,30 @@ async def end_call(
         return None
 
 
+async def set_recording_url(*, twilio_call_sid: str, path: str) -> None:
+    """Store the Supabase Storage path of a call's recording (ticket 2.14)."""
+
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE calls SET recording_url = $2 WHERE twilio_call_sid = $1",
+                twilio_call_sid,
+                path,
+            )
+        logger.info(
+            "call_recording_url_set",
+            twilio_call_sid=twilio_call_sid,
+            path=path,
+        )
+    except Exception as exc:
+        logger.error(
+            "call_recording_url_failed",
+            error=str(exc),
+            twilio_call_sid=twilio_call_sid,
+        )
+
+
 async def close_stale_calls(*, max_age_seconds: int) -> int:
     """Close calls left open past ``max_age_seconds`` (dropped before callback).
 
