@@ -123,6 +123,7 @@ async def record_turn(
     tenant_id: UUID | None = None,
     latency_ms: int | None = None,
     tts_chars: int | None = None,
+    latency_breakdown: dict[str, int | None] | None = None,
 ) -> None:
     """Insert one ``call_messages`` row for a completed turn."""
 
@@ -132,9 +133,10 @@ async def record_turn(
             await conn.execute(
                 """
                 INSERT INTO call_messages (
-                    call_id, tenant_id, role, content, latency_ms, tts_chars
+                    call_id, tenant_id, role, content,
+                    latency_ms, tts_chars, latency_breakdown
                 )
-                VALUES ($1, $2, $3, $4, $5, $6)
+                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
                 """,
                 call_id,
                 tenant_id or DEV_TENANT_ID,
@@ -142,6 +144,11 @@ async def record_turn(
                 content,
                 latency_ms,
                 tts_chars,
+                (
+                    json.dumps(latency_breakdown)
+                    if latency_breakdown is not None
+                    else None
+                ),
             )
     except Exception as exc:
         logger.error(

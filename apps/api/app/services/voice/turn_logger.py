@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+# A turn slower than this end-to-end logs a warning for diagnosis (ticket 2.15).
+SLOW_TURN_THRESHOLD_MS = 1500
+
 
 def _ttfb_ms(breakdown: LatencyBreakdown, *, keyword: str) -> int | None:
     for metric in breakdown.ttfb:
@@ -158,6 +161,21 @@ def attach_turn_logging(
 
         tts_chars = metrics_collector.last_tts_chars or len(message.content)
 
+        latency_breakdown = {
+            "stt_ms": stt_ms,
+            "llm_ms": llm_ms,
+            "tts_first_byte_ms": tts_first_byte_ms,
+            "total_ms": total_ms,
+        }
+
+        if total_ms is not None and total_ms > SLOW_TURN_THRESHOLD_MS:
+            logger.warning(
+                "slow_turn",
+                turn_number=state["turn_number"],
+                threshold_ms=SLOW_TURN_THRESHOLD_MS,
+                **latency_breakdown,
+            )
+
         logger.info(
             "conversation_turn_complete",
             turn_number=state["turn_number"],
@@ -179,6 +197,7 @@ def attach_turn_logging(
                 content=message.content,
                 latency_ms=total_ms,
                 tts_chars=tts_chars,
+                latency_breakdown=latency_breakdown,
             )
 
         state["user_input"] = ""

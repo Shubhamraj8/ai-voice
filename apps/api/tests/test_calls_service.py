@@ -125,6 +125,30 @@ async def test_record_turn_defaults_tenant_when_none(mock_db_pool, monkeypatch):
     assert args[2] == calls.DEV_TENANT_ID
 
 
+async def test_record_turn_persists_latency_breakdown(mock_db_pool, monkeypatch):
+    import json
+
+    pool, conn = mock_db_pool
+    monkeypatch.setattr(calls, "get_pool", lambda: pool)
+    breakdown = {
+        "stt_ms": 100,
+        "llm_ms": 300,
+        "tts_first_byte_ms": 200,
+        "total_ms": 700,
+    }
+
+    await calls.record_turn(
+        call_id=uuid.uuid4(),
+        role="assistant",
+        content="hi",
+        latency_ms=700,
+        latency_breakdown=breakdown,
+    )
+
+    args = conn.execute.await_args.args
+    assert json.loads(args[7]) == breakdown
+
+
 # --- end_call ----------------------------------------------------------------
 
 
