@@ -2,7 +2,6 @@ import json
 import re
 from uuid import UUID
 
-from app.config import get_settings
 from app.errors import api_error
 from app.models.agent import Agent
 from app.models.internal_tenant import (
@@ -24,6 +23,10 @@ DEFAULT_AGENT_SYSTEM_PROMPT = (
     "You are a helpful AI receptionist for a business. "
     "Keep every reply under 25 words. Be warm, clear, and concise."
 )
+
+# Default voice for the first agent — a value from the Aura catalogue so the
+# 3.08 voice dropdown shows it as a valid selection.
+DEFAULT_AGENT_VOICE = "aura-asteria-en"
 
 
 def slugify(value: str) -> str:
@@ -298,7 +301,7 @@ async def create_default_agent(
 ) -> Agent:
     """Insert the tenant's first agent, holding the provisioned number (3.06)."""
 
-    voice = voice_id or get_settings().deepgram_voice
+    voice = voice_id or DEFAULT_AGENT_VOICE
     row = await conn.fetchrow(
         """
         INSERT INTO agents (

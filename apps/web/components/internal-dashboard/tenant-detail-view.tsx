@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, PauseCircle, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchTenantDetail, patchTenant, type TenantDetail } from "@/lib/api/internal";
+import { AgentEditForm } from "@/components/internal-dashboard/agent-edit-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -273,34 +274,22 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
       ) : null}
 
       {activeTab === "agents" ? (
-        <section className="rounded-xl border border-zerqo-line bg-white">
+        <div className="space-y-4">
           {data.agents.length === 0 ? (
-            <p className="p-5 text-sm text-muted-foreground">
-              No agents linked yet (form in 3.08).
+            <p className="rounded-xl border border-zerqo-line bg-white p-5 text-sm text-muted-foreground">
+              No agents yet.
             </p>
           ) : (
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-zerqo-line bg-[#faf7f3] text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Phone</th>
-                  <th className="px-4 py-3 text-left">Voice</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.agents.map((agent) => (
-                  <tr key={agent.id} className="border-b border-zerqo-line/70">
-                    <td className="px-4 py-3 font-medium">{agent.name}</td>
-                    <td className="px-4 py-3">{agent.phone_number}</td>
-                    <td className="px-4 py-3">{agent.voice_id}</td>
-                    <td className="px-4 py-3">{agent.is_active ? "Active" : "Inactive"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            data.agents.map((agent) => (
+              <AgentEditForm
+                key={agent.id}
+                tenantId={tenantId}
+                agent={agent}
+                onSaved={() => void loadDetail()}
+              />
+            ))
           )}
-        </section>
+        </div>
       ) : null}
 
       {activeTab === "calls" ? (

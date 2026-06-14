@@ -90,6 +90,53 @@ def test_internal_agents_success():
             app.dependency_overrides.clear()
 
 
+def test_internal_voices_lists_catalogue():
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    try:
+        response = client.get(
+            "/internal/voices", headers={"Authorization": "Bearer test-token"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["voices"]) == 12
+        assert data["default"] in data["voices"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_voice_preview_returns_wav(monkeypatch):
+    class _FakeTTS:
+        async def synthesize(self, text, voice_id, language="en"):
+            yield b"\x00\x01\x02\x03"
+
+    monkeypatch.setattr("app.routes.internal.DeepgramTTS", _FakeTTS)
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    try:
+        response = client.get(
+            "/internal/voices/aura-asteria-en/preview",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "audio/wav"
+        assert response.content.startswith(b"RIFF")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_voice_preview_invalid_voice_returns_422():
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    try:
+        response = client.get(
+            "/internal/voices/not-a-voice/preview",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "invalid_voice_id"
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_internal_ping_forbidden():
     def deny():
         raise HTTPException(

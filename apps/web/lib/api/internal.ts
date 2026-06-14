@@ -55,6 +55,9 @@ export type TenantDetail = {
     phone_number: string;
     voice_id: string;
     is_active: boolean;
+    starter_prompt: string;
+    system_prompt: string;
+    tools: string[];
   }>;
   recent_calls: Array<{
     id: string;
@@ -77,6 +80,8 @@ export type TenantDetail = {
   audit_page: number;
   audit_page_size: number;
 };
+
+export type TenantAgent = TenantDetail["agents"][number];
 
 type TenantQuery = {
   page?: number;
@@ -201,4 +206,38 @@ export async function provisionTenant(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export async function patchAgent(
+  accessToken: string,
+  tenantId: string,
+  agentId: string,
+  body: Record<string, unknown>
+): Promise<TenantAgent> {
+  return internalFetch(`/internal/tenants/${tenantId}/agents/${agentId}`, accessToken, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function fetchVoiceCatalog(accessToken: string): Promise<string[]> {
+  const result = await internalFetch<{ voices: string[]; default: string }>(
+    "/internal/voices",
+    accessToken
+  );
+  return result.voices;
+}
+
+export async function fetchVoicePreview(accessToken: string, voiceId: string): Promise<Blob> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/internal/voices/${encodeURIComponent(voiceId)}/preview`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Voice preview failed (${response.status})`);
+  }
+  return response.blob();
 }
