@@ -6,7 +6,18 @@ AI Voice is a multi-tenant AI voice agent platform for small businesses. The pro
 
 ## Status
 
-Phase 1 implementation is in progress. The monorepo includes a Next.js frontend and a FastAPI backend.
+**Phase 1 (foundation) and Phase 2 (voice pipeline) are complete.**
+
+- **Phase 1 — foundation:** monorepo + tooling, Supabase multi-tenant schema with
+  row-level security, Supabase auth with route guards, marketing site, client
+  portal and internal dashboard shells, and Render/Vercel deployment.
+- **Phase 2 — voice pipeline:** end-to-end inbound calls over Twilio Media
+  Streams — Deepgram STT (Nova-3) → DeepSeek LLM → Deepgram TTS (Aura) with
+  VAD-based turn detection and barge-in. Includes call and per-turn persistence,
+  call recording to Supabase Storage, per-turn latency metrics, a sub-800ms
+  greeting and a consent disclosure on pickup, and agent-process lifecycle
+  management. End-to-end real-call testing (ticket 2.19) is the final validation
+  step before Phase 3.
 
 ## Monorepo structure
 
@@ -54,10 +65,8 @@ Run both apps in parallel:
 pnpm dev
 ```
 
-- Web: http://localhost:3000
-- API: http://localhost:8000
-
-Both apps expose `hello-world` on their root paths.
+- Web: http://localhost:3000 — marketing site, client portal, and internal dashboard
+- API: http://localhost:8000 — Twilio voice webhooks and internal endpoints
 
 ## Dev tunnel (Twilio webhooks)
 
