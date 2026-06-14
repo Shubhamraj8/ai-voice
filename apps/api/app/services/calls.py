@@ -115,6 +115,25 @@ async def get_call_id_by_sid(twilio_call_sid: str) -> UUID | None:
         return None
 
 
+async def get_call_route_by_sid(twilio_call_sid: str):
+    """Return the (id, tenant_id) row for a CallSid, or None (ticket 3.09)."""
+
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            return await conn.fetchrow(
+                "SELECT id, tenant_id FROM calls WHERE twilio_call_sid = $1",
+                twilio_call_sid,
+            )
+    except Exception as exc:
+        logger.error(
+            "call_route_lookup_failed",
+            error=str(exc),
+            twilio_call_sid=twilio_call_sid,
+        )
+        return None
+
+
 async def record_turn(
     *,
     call_id: UUID,

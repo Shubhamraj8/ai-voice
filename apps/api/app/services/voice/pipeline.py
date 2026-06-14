@@ -29,7 +29,7 @@ from pipecat.transports.websocket.fastapi import (
 from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.workers.runner import WorkerRunner
 
-from app.services.calls import DEV_TENANT_ID, get_call_id_by_sid
+from app.services.calls import get_call_route_by_sid
 from app.services.voice import agent_registry
 from app.services.voice.audio_config import (
     STT_INPUT_SAMPLE_RATE,
@@ -244,6 +244,7 @@ def _build_conversation_pipeline(
     settings: Settings,
     *,
     call_db_id: UUID | None = None,
+    tenant_id: UUID | None = None,
 ) -> ConversationPipeline:
     """Wire Deepgram STT → DeepSeek LLM → Deepgram TTS with turn detection (2.12)."""
 
@@ -342,7 +343,7 @@ def _build_conversation_pipeline(
         latency_observer=latency_observer,
         metrics_collector=metrics_collector,
         call_id=call_db_id,
-        tenant_id=DEV_TENANT_ID if call_db_id is not None else None,
+        tenant_id=tenant_id,
     )
 
     return ConversationPipeline(
@@ -418,10 +419,15 @@ async def run_minimal_twilio_pipeline(
     hello_pcm: bytes | None = None
 
     if use_full_pipeline:
-        call_db_id = await get_call_id_by_sid(call_id) if call_id else None
+        route = await get_call_route_by_sid(call_id) if call_id else None
+        call_db_id = route["id"] if route else None
+        call_tenant_id = route["tenant_id"] if route else None
 
         conversation = _build_conversation_pipeline(
-            transport, settings, call_db_id=call_db_id
+            transport,
+            settings,
+            call_db_id=call_db_id,
+            tenant_id=call_tenant_id,
         )
 
         worker = conversation.worker
