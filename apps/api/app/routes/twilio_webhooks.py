@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Request, Response
 from app.config import get_settings
 from app.services.calls import build_provider_snapshot, end_call, start_call
 from app.services.recording import process_recording, start_call_recording
+from app.services.voice import agent_registry
 from app.webhooks.twilio_logging import (
     RECORDING_LOG_FIELDS,
     STATUS_LOG_FIELDS,
@@ -75,6 +76,8 @@ async def twilio_status_webhook(request: Request) -> Response:
                 twilio_call_sid=call_sid,
                 duration_secs=int(raw_duration) if raw_duration.isdigit() else None,
             )
+            # Force agent cleanup in case the websocket lingers (ticket 2.18).
+            await agent_registry.terminate(call_sid)
 
     logger.info(
         "twilio_status_webhook",

@@ -30,6 +30,7 @@ from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.workers.runner import WorkerRunner
 
 from app.services.calls import DEV_TENANT_ID, get_call_id_by_sid
+from app.services.voice import agent_registry
 from app.services.voice.audio_config import (
     STT_INPUT_SAMPLE_RATE,
     TTS_OUTPUT_SAMPLE_RATE,
@@ -474,6 +475,9 @@ async def run_minimal_twilio_pipeline(
 
         await worker.cancel()
 
+    if call_id:
+        agent_registry.register(call_id, worker)
+
     runner = WorkerRunner(handle_sigint=False, force_gc=True)
 
     try:
@@ -482,6 +486,9 @@ async def run_minimal_twilio_pipeline(
         await runner.run()
 
     finally:
+        if call_id:
+            agent_registry.unregister(call_id)
+
         logger.info(
             "twilio_pipeline_finished",
             stream_id=stream_id,

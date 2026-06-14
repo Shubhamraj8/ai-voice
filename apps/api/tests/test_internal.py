@@ -67,6 +67,29 @@ def test_internal_latency_success():
             app.dependency_overrides.clear()
 
 
+def test_internal_agents_success():
+    with patch("app.routes.internal.agent_registry") as mock_registry:
+        mock_registry.active_count.return_value = 2
+        mock_registry.list_active.return_value = [
+            {"call_sid": "CA1", "age_secs": 30},
+            {"call_sid": "CA2", "age_secs": 90},
+        ]
+
+        app.dependency_overrides[require_internal_user] = _internal_ctx
+        try:
+            response = client.get(
+                "/internal/agents",
+                headers={"Authorization": "Bearer test-token"},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["active_count"] == 2
+            assert len(data["agents"]) == 2
+            assert data["agents"][0]["call_sid"] == "CA1"
+        finally:
+            app.dependency_overrides.clear()
+
+
 def test_internal_ping_forbidden():
     def deny():
         raise HTTPException(
