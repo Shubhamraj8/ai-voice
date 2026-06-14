@@ -163,3 +163,42 @@ export async function patchTenant(
     body: JSON.stringify(body),
   });
 }
+
+export type AvailableNumber = {
+  phone_number: string;
+  friendly_name: string | null;
+  locality: string | null;
+  region: string | null;
+};
+
+export async function searchAvailableNumbers(
+  accessToken: string,
+  region: string,
+  limit = 5
+): Promise<AvailableNumber[]> {
+  const query = `?region=${encodeURIComponent(region)}&limit=${limit}`;
+  const result = await internalFetch<{ numbers: AvailableNumber[] }>(
+    `/internal/tenants/available-numbers${query}`,
+    accessToken
+  );
+  return result.numbers;
+}
+
+export type ProvisionTenantBody = {
+  business_name: string;
+  phone_number: string;
+  market: string;
+  region: string;
+  contact_name?: string | null;
+  contact_email?: string | null;
+};
+
+export async function provisionTenant(
+  accessToken: string,
+  body: ProvisionTenantBody
+): Promise<{ id: string; slug: string; business_name: string }> {
+  return internalFetch(`/internal/tenants/provision`, accessToken, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

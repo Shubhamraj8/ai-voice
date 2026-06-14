@@ -1,7 +1,7 @@
 import json
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.db.pool import get_pool
@@ -10,8 +10,59 @@ from app.middleware.auth import InternalUserContext, User, require_internal_user
 from app.models.tenant import ProviderConfig
 from app.providers.registry import validate_provider_config
 from fastapi.testclient import TestClient
+from twilio.base.exceptions import TwilioRestException
 
 client = TestClient(app)
+
+
+class _FakeTxn:
+    async def __aenter__(self):
+        return None
+
+    async def __aexit__(self, *args):
+        return False
+
+
+def _tenant_row(tenant_id, now, slug="new-co"):
+    return {
+        "id": tenant_id,
+        "slug": slug,
+        "business_name": "New Co",
+        "market": "india_english",
+        "language": "en",
+        "timezone": "Asia/Kolkata",
+        "plan": "starter",
+        "provider_config": json.dumps(
+            {"stt": "cartesia", "tts": "inworld", "llm": "deepseek_native"}
+        ),
+        "onboarding_mode": "sales_led",
+        "status": "active",
+        "contact_email": None,
+        "contact_name": None,
+        "contact_phone": None,
+        "archived_at": None,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def _agent_row(agent_id, tenant_id, now):
+    return {
+        "id": agent_id,
+        "tenant_id": tenant_id,
+        "name": "Main line",
+        "starter_prompt": "receptionist",
+        "system_prompt": "You are a helpful AI receptionist.",
+        "tools": [],
+        "voice_id": "aura-2-helena-en",
+        "phone_number": "+911234567890",
+        "twilio_sid": "PN123",
+        "is_active": True,
+        "version": 1,
+        "archived_at": None,
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
 def _internal_ctx():
@@ -143,5 +194,108 @@ def test_create_tenant_success(internal_api, mock_db_pool, monkeypatch):
         assert response.status_code == 201
         assert response.json()["slug"] == "new-co"
         audit.assert_awaited_once()
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+
+def test_provision_tenant_success(internal_api, mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    tenant_id = uuid.uuid4()
+    agent_id = uuid.uuid4()
+    now = datetime.now(UTC)
+
+    # slug pre-check (None), create_tenant slug check (None),
+    # create_tenant INSERT (tenant), create_default_agent INSERT (agent)
+    conn.fetchrow.side_effect = [
+        None,
+        None,
+        _tenant_row(tenant_id, now),
+        _agent_row(agent_id, tenant_id, now),
+    ]
+    conn.transaction = MagicMock(return_value=_FakeTxn())
+
+    monkeypatch.setattr(
+        "app.services.twilio_numbers.purchase_number",
+        AsyncMock(return_value="PN123"),
+    )
+    monkeypatch.setattr(
+        "app.services.twilio_numbers.configure_voice_webhook", AsyncMock()
+    )
+    audit = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_tenants.log_internal_action", audit)
+
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.post(
+            "/internal/tenants/provision",
+            json={
+                "business_name": "New Co",
+                "phone_number": "+911234567890",
+                "market": "india_english",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["business_name"] == "New Co"
+        # create + purchase_number + configure_webhook
+        assert audit.await_count == 3
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+
+def test_provision_purchase_failure_returns_502(
+    internal_api, mock_db_pool, monkeypatch
+):
+    pool, conn = mock_db_pool
+    conn.fetchrow.side_effect = [None]  # slug pre-check: free
+
+    monkeypatch.setattr(
+        "app.services.twilio_numbers.purchase_number",
+        AsyncMock(side_effect=TwilioRestException(status=400, uri="", msg="no funds")),
+    )
+    audit = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_tenants.log_internal_action", audit)
+
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.post(
+            "/internal/tenants/provision",
+            json={"business_name": "New Co", "phone_number": "+911234567890"},
+        )
+        assert response.status_code == 502
+        assert response.json()["detail"]["code"] == "twilio_purchase_failed"
+        audit.assert_not_awaited()
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+
+def test_provision_configure_failure_releases_number(
+    internal_api, mock_db_pool, monkeypatch
+):
+    pool, conn = mock_db_pool
+    conn.fetchrow.side_effect = [None]  # slug pre-check: free
+
+    monkeypatch.setattr(
+        "app.services.twilio_numbers.purchase_number",
+        AsyncMock(return_value="PN123"),
+    )
+    monkeypatch.setattr(
+        "app.services.twilio_numbers.configure_voice_webhook",
+        AsyncMock(side_effect=TwilioRestException(status=400, uri="", msg="bad")),
+    )
+    release = AsyncMock()
+    monkeypatch.setattr("app.services.twilio_numbers.release_number", release)
+    audit = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_tenants.log_internal_action", audit)
+
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.post(
+            "/internal/tenants/provision",
+            json={"business_name": "New Co", "phone_number": "+911234567890"},
+        )
+        assert response.status_code == 502
+        assert response.json()["detail"]["code"] == "twilio_configure_failed"
+        release.assert_awaited_once_with("PN123")
+        audit.assert_not_awaited()
     finally:
         app.dependency_overrides.pop(get_pool, None)
