@@ -15,6 +15,7 @@ from app.services.voice.audio_conversion import (
     twilio_mulaw_to_stt_pcm,
 )
 from app.services.voice.conversation_config import (
+    GREETING_TEXT,
     MAX_CONVERSATION_TURNS,
     MAX_LLM_OUTPUT_TOKENS,
     SYSTEM_PROMPT,
@@ -263,6 +264,22 @@ def test_conversation_config_defaults():
     assert MAX_CONVERSATION_TURNS == 10
 
     assert MAX_LLM_OUTPUT_TOKENS == 200
+
+
+def test_greeting_seeded_into_context():
+
+    context = build_llm_context()
+
+    assert context.messages[0]["role"] == "system"
+
+    assert context.messages[1]["role"] == "assistant"
+
+    assert context.messages[1]["content"] == GREETING_TEXT
+
+    # A non-empty, short greeting that can play within the 800ms budget.
+    assert GREETING_TEXT.strip()
+
+    assert len(GREETING_TEXT.split()) <= 15
 
 
 def test_trim_conversation_history_keeps_system_and_last_ten_turns():

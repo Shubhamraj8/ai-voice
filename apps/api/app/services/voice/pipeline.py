@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import structlog
 from fastapi import WebSocket
 from pipecat.frames.frames import (
-    LLMMessagesAppendFrame,
     OutputAudioRawFrame,
     TTSSpeakFrame,
 )
@@ -38,7 +37,7 @@ from app.services.voice.audio_config import (
 )
 from app.services.voice.buffer_monitor import AudioBufferUnderrunMonitor
 from app.services.voice.conversation_config import (
-    CONNECT_GREETING_PROMPT,
+    GREETING_TEXT,
     MAX_LLM_OUTPUT_TOKENS,
     build_llm_context,
 )
@@ -445,19 +444,10 @@ async def run_minimal_twilio_pipeline(
         )
 
         if use_full_pipeline and conversation is not None:
-            await conversation.worker.queue_frames(
-                [
-                    LLMMessagesAppendFrame(
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": CONNECT_GREETING_PROMPT,
-                            }
-                        ],
-                        run_llm=True,
-                    ),
-                ]
-            )
+            # Static greeting via TTS only — no LLM round-trip — so the caller
+            # hears it within 800ms of connecting (ticket 2.16). It is already
+            # seeded into the LLM context, so the conversation stays coherent.
+            await conversation.worker.queue_frames([TTSSpeakFrame(GREETING_TEXT)])
 
         elif use_deepgram_only:
             await worker.queue_frames([TTSSpeakFrame(DEEPGRAM_CONNECT_GREETING)])
