@@ -67,6 +67,21 @@ def test_voice_webhook_returns_connect_stream_twiml(twilio_env):
     assert '<Stream url="ws://testserver/webhooks/twilio/media" />' in body
 
 
+def test_voice_webhook_plays_consent_disclosure_before_connect(twilio_env):
+    signature = _sign(VOICE_URL, VOICE_PARAMS)
+    response = client.post(
+        "/webhooks/twilio/voice",
+        data=VOICE_PARAMS,
+        headers={"X-Twilio-Signature": signature},
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    assert "<Say>This call may be recorded" in body
+    # Disclosure must be spoken before the media stream connects (ticket 2.17).
+    assert body.index("<Say>") < body.index("<Connect>")
+
+
 def test_voice_webhook_rejects_missing_signature(twilio_env):
     response = client.post("/webhooks/twilio/voice", data=VOICE_PARAMS)
 
