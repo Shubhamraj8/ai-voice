@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-v4-flash"
     deepseek_timeout_s: float = 30.0
 
+    # Call recording → Supabase Storage (ticket 2.14)
+    recordings_bucket: str = "recordings"
+    recording_signed_url_ttl_s: int = 3600
+    twilio_recording_status_path: str = "/webhooks/twilio/recording"
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 

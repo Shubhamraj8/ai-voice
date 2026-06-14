@@ -24,6 +24,15 @@ STATUS_PARAMS = {
     "To": "+919876543210",
 }
 
+RECORDING_URL = "http://testserver/webhooks/twilio/recording"
+
+RECORDING_PARAMS = {
+    "CallSid": "CA1234567890abcdef",
+    "RecordingSid": "RE1234567890abcdef",
+    "RecordingStatus": "completed",
+    "RecordingUrl": "https://api.twilio.com/2010-04-01/Accounts/AC/Recordings/RE1",
+}
+
 client = TestClient(app)
 
 
@@ -56,6 +65,21 @@ def test_voice_webhook_returns_connect_stream_twiml(twilio_env):
     assert "<Response>" in body
     assert "<Connect>" in body
     assert '<Stream url="ws://testserver/webhooks/twilio/media" />' in body
+
+
+def test_voice_webhook_plays_consent_disclosure_before_connect(twilio_env):
+    signature = _sign(VOICE_URL, VOICE_PARAMS)
+    response = client.post(
+        "/webhooks/twilio/voice",
+        data=VOICE_PARAMS,
+        headers={"X-Twilio-Signature": signature},
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    assert "<Say>This call may be recorded" in body
+    # Disclosure must be spoken before the media stream connects (ticket 2.17).
+    assert body.index("<Say>") < body.index("<Connect>")
 
 
 def test_voice_webhook_rejects_missing_signature(twilio_env):
@@ -119,3 +143,35 @@ def test_build_media_stream_url_uses_wss_for_https(twilio_env, monkeypatch):
         in response.text
     )
     get_settings.cache_clear()
+
+
+def test_recording_webhook_schedules_processing(twilio_env, monkeypatch):
+    captured = {}
+
+    def fake_process(call_sid, recording_url):
+        captured["args"] = (call_sid, recording_url)
+
+    monkeypatch.setattr("app.routes.twilio_webhooks.process_recording", fake_process)
+
+    signature = _sign(RECORDING_URL, RECORDING_PARAMS)
+    response = client.post(
+        "/webhooks/twilio/recording",
+        data=RECORDING_PARAMS,
+        headers={"X-Twilio-Signature": signature},
+    )
+
+    assert response.status_code == 204
+    assert captured["args"] == (
+        RECORDING_PARAMS["CallSid"],
+        RECORDING_PARAMS["RecordingUrl"],
+    )
+
+
+def test_recording_webhook_rejects_invalid_signature(twilio_env):
+    response = client.post(
+        "/webhooks/twilio/recording",
+        data=RECORDING_PARAMS,
+        headers={"X-Twilio-Signature": "invalid"},
+    )
+
+    assert response.status_code == 403

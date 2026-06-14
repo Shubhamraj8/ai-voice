@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import structlog
 from fastapi import WebSocket
 from pipecat.frames.frames import (
-    LLMMessagesAppendFrame,
     OutputAudioRawFrame,
     TTSSpeakFrame,
 )
@@ -31,6 +30,7 @@ from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.workers.runner import WorkerRunner
 
 from app.services.calls import DEV_TENANT_ID, get_call_id_by_sid
+from app.services.voice import agent_registry
 from app.services.voice.audio_config import (
     STT_INPUT_SAMPLE_RATE,
     TTS_OUTPUT_SAMPLE_RATE,
@@ -38,7 +38,7 @@ from app.services.voice.audio_config import (
 )
 from app.services.voice.buffer_monitor import AudioBufferUnderrunMonitor
 from app.services.voice.conversation_config import (
-    CONNECT_GREETING_PROMPT,
+    GREETING_TEXT,
     MAX_LLM_OUTPUT_TOKENS,
     build_llm_context,
 )
@@ -445,19 +445,10 @@ async def run_minimal_twilio_pipeline(
         )
 
         if use_full_pipeline and conversation is not None:
-            await conversation.worker.queue_frames(
-                [
-                    LLMMessagesAppendFrame(
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": CONNECT_GREETING_PROMPT,
-                            }
-                        ],
-                        run_llm=True,
-                    ),
-                ]
-            )
+            # Static greeting via TTS only — no LLM round-trip — so the caller
+            # hears it within 800ms of connecting (ticket 2.16). It is already
+            # seeded into the LLM context, so the conversation stays coherent.
+            await conversation.worker.queue_frames([TTSSpeakFrame(GREETING_TEXT)])
 
         elif use_deepgram_only:
             await worker.queue_frames([TTSSpeakFrame(DEEPGRAM_CONNECT_GREETING)])
@@ -484,6 +475,9 @@ async def run_minimal_twilio_pipeline(
 
         await worker.cancel()
 
+    if call_id:
+        agent_registry.register(call_id, worker)
+
     runner = WorkerRunner(handle_sigint=False, force_gc=True)
 
     try:
@@ -492,6 +486,9 @@ async def run_minimal_twilio_pipeline(
         await runner.run()
 
     finally:
+        if call_id:
+            agent_registry.unregister(call_id)
+
         logger.info(
             "twilio_pipeline_finished",
             stream_id=stream_id,

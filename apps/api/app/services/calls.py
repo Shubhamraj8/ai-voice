@@ -123,6 +123,7 @@ async def record_turn(
     tenant_id: UUID | None = None,
     latency_ms: int | None = None,
     tts_chars: int | None = None,
+    latency_breakdown: dict[str, int | None] | None = None,
 ) -> None:
     """Insert one ``call_messages`` row for a completed turn."""
 
@@ -132,9 +133,10 @@ async def record_turn(
             await conn.execute(
                 """
                 INSERT INTO call_messages (
-                    call_id, tenant_id, role, content, latency_ms, tts_chars
+                    call_id, tenant_id, role, content,
+                    latency_ms, tts_chars, latency_breakdown
                 )
-                VALUES ($1, $2, $3, $4, $5, $6)
+                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
                 """,
                 call_id,
                 tenant_id or DEV_TENANT_ID,
@@ -142,6 +144,11 @@ async def record_turn(
                 content,
                 latency_ms,
                 tts_chars,
+                (
+                    json.dumps(latency_breakdown)
+                    if latency_breakdown is not None
+                    else None
+                ),
             )
     except Exception as exc:
         logger.error(
@@ -195,6 +202,30 @@ async def end_call(
             twilio_call_sid=twilio_call_sid,
         )
         return None
+
+
+async def set_recording_url(*, twilio_call_sid: str, path: str) -> None:
+    """Store the Supabase Storage path of a call's recording (ticket 2.14)."""
+
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE calls SET recording_url = $2 WHERE twilio_call_sid = $1",
+                twilio_call_sid,
+                path,
+            )
+        logger.info(
+            "call_recording_url_set",
+            twilio_call_sid=twilio_call_sid,
+            path=path,
+        )
+    except Exception as exc:
+        logger.error(
+            "call_recording_url_failed",
+            error=str(exc),
+            twilio_call_sid=twilio_call_sid,
+        )
 
 
 async def close_stale_calls(*, max_age_seconds: int) -> int:

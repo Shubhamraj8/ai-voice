@@ -32,6 +32,18 @@ STATUS_LOG_FIELDS = frozenset(
     }
 )
 
+RECORDING_LOG_FIELDS = frozenset(
+    {
+        "CallSid",
+        "AccountSid",
+        "RecordingSid",
+        "RecordingStatus",
+        "RecordingDuration",
+        "RecordingChannels",
+        "RecordingSource",
+    }
+)
+
 
 def twilio_payload_for_log(
     params: dict[str, str], *, fields: frozenset[str]

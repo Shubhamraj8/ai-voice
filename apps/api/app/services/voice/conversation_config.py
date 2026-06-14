@@ -15,21 +15,21 @@ MAX_CONVERSATION_TURNS = 10
 # Hard cap on LLM output tokens — keeps TTS cost and latency low.
 MAX_LLM_OUTPUT_TOKENS = 200
 
-# Synthetic first-turn prompt queued when the caller connects.
-CONNECT_GREETING_PROMPT = (
-    "The caller just connected. Greet them warmly in one short sentence."
-)
+# Spoken immediately on call connect (ticket 2.16). Static so it plays within
+# 800ms — TTS only, no LLM round-trip — and matches the receptionist persona.
+# Per-agent greetings (derived from the agent's starter_prompt) arrive with the
+# tenant/agent lookup in 3.09.
+GREETING_TEXT = "Hello! Thanks for calling. How can I help you today?"
 
 
 def build_llm_context() -> LLMContext:
-    """Return a fresh LLM context seeded with the hardcoded system prompt."""
+    """Return a fresh LLM context seeded with the system prompt and the spoken
+    greeting, so the model continues coherently after the static greeting."""
 
     return LLMContext(
         messages=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT,
-            }
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "assistant", "content": GREETING_TEXT},
         ]
     )
 
