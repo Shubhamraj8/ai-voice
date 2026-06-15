@@ -241,3 +241,49 @@ export async function fetchVoicePreview(accessToken: string, voiceId: string): P
   }
   return response.blob();
 }
+
+export type AuditLogRow = {
+  id: string;
+  actor_user_id: string | null;
+  actor_email: string | null;
+  actor_type: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  tenant_id: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type AuditLogListResponse = {
+  items: AuditLogRow[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type AuditLogQuery = {
+  page?: number;
+  page_size?: number;
+  actor_type?: string;
+  action?: string;
+  target_type?: string;
+  tenant?: string;
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+};
+
+export async function fetchAuditLog(
+  accessToken: string,
+  params: AuditLogQuery = {}
+): Promise<AuditLogListResponse> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  }
+  const qs = query.toString();
+  return internalFetch(`/internal/audit${qs ? `?${qs}` : ""}`, accessToken);
+}

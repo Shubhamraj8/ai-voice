@@ -1,8 +1,10 @@
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.db.pool import get_pool
 from app.main import app
 from app.middleware.auth import InternalUserContext, User, require_internal_user
+from app.models.internal_tenant import AuditLogListResponse
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -133,6 +135,27 @@ def test_voice_preview_invalid_voice_returns_422():
         )
         assert response.status_code == 422
         assert response.json()["detail"]["code"] == "invalid_voice_id"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_internal_audit_endpoint(mock_db_pool, monkeypatch):
+    pool, _conn = mock_db_pool
+
+    async def fake_list(conn, **kwargs):
+        return AuditLogListResponse(items=[], total=0, page=1, page_size=50)
+
+    monkeypatch.setattr("app.routes.internal.list_audit_log", fake_list)
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.get(
+            "/internal/audit?actor_type=internal_user",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
     finally:
         app.dependency_overrides.clear()
 

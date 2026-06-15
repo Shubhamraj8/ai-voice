@@ -58,6 +58,28 @@ class AuditLogEntry(BaseModel):
     created_at: datetime
 
 
+class AuditLogRow(BaseModel):
+    """A row in the global audit-log viewer (ticket 3.12)."""
+
+    id: UUID
+    actor_user_id: UUID | None = None
+    actor_email: str | None = None
+    actor_type: str
+    action: str
+    target_type: str | None = None
+    target_id: UUID | None = None
+    tenant_id: UUID | None = None
+    payload: dict | None = None
+    created_at: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogRow]
+    total: int
+    page: int
+    page_size: int
+
+
 class TenantDetailResponse(BaseModel):
     tenant: Tenant
     agent_count: int = 0

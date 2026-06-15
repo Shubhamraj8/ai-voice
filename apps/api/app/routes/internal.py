@@ -1,14 +1,19 @@
 import struct
+from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 
+from app.db.pool import get_pool
 from app.db.supabase import get_service_role_client
 from app.middleware.auth import InternalUserContext, require_internal_user
+from app.models.internal_tenant import AuditLogListResponse
 from app.providers.deepgram_tts import VOICE_CATALOGUE, DeepgramTTS
 from app.services.agent_internal import validate_voice_id
 from app.services.audit import log_internal_action
+from app.services.audit_query import list_audit_log
 from app.services.metrics import latency_percentiles
 from app.services.voice import agent_registry
 
@@ -164,3 +169,40 @@ async def internal_voice_preview(
         chunk async for chunk in tts.synthesize(VOICE_PREVIEW_LINE, voice_id, "en")
     ]
     return Response(content=_pcm16_to_wav(b"".join(chunks)), media_type="audio/wav")
+
+
+@router.get(
+    "/audit",
+    response_model=AuditLogListResponse,
+    summary="Audit log viewer",
+    description=(
+        "Requires an authenticated internal user. Paginated, newest-first audit "
+        "log with composable filters (ticket 3.12)."
+    ),
+)
+async def internal_audit(
+    _ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+    pool=Depends(get_pool),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    actor_type: str | None = None,
+    action: str | None = None,
+    target_type: str | None = None,
+    tenant: UUID | None = None,
+    search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> AuditLogListResponse:
+    async with pool.acquire() as conn:
+        return await list_audit_log(
+            conn,
+            page=page,
+            page_size=page_size,
+            actor_type=actor_type,
+            action=action,
+            target_type=target_type,
+            tenant_id=tenant,
+            search=search,
+            date_from=date_from,
+            date_to=date_to,
+        )
