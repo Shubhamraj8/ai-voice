@@ -22,10 +22,14 @@ logger = structlog.get_logger(__name__)
 class ResolvedRoute:
     tenant_id: UUID
     agent_id: UUID
+    stt: str
+    tts: str
+    llm: str
 
 
 async def resolve_agent_by_number(to_number: str) -> ResolvedRoute | None:
-    """Return the active tenant+agent owning ``to_number``, or None."""
+    """Return the active tenant+agent owning ``to_number`` (with the tenant's
+    provider_config), or None."""
 
     if not to_number:
         return None
@@ -35,7 +39,10 @@ async def resolve_agent_by_number(to_number: str) -> ResolvedRoute | None:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT a.id AS agent_id, a.tenant_id
+                SELECT a.id AS agent_id, a.tenant_id,
+                       t.provider_config->>'stt' AS stt,
+                       t.provider_config->>'tts' AS tts,
+                       t.provider_config->>'llm' AS llm
                 FROM agents a
                 JOIN tenants t ON t.id = a.tenant_id
                 WHERE a.phone_number = $1
@@ -53,4 +60,10 @@ async def resolve_agent_by_number(to_number: str) -> ResolvedRoute | None:
 
     if row is None:
         return None
-    return ResolvedRoute(tenant_id=row["tenant_id"], agent_id=row["agent_id"])
+    return ResolvedRoute(
+        tenant_id=row["tenant_id"],
+        agent_id=row["agent_id"],
+        stt=row["stt"],
+        tts=row["tts"],
+        llm=row["llm"],
+    )

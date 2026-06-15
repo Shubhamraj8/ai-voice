@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Request, Response
 
 from app.config import get_settings
 from app.services.call_routing import resolve_agent_by_number
-from app.services.calls import build_provider_snapshot, end_call, start_call
+from app.services.calls import end_call, start_call
 from app.services.recording import process_recording, start_call_recording
 from app.services.voice import agent_registry
 from app.webhooks.twilio_logging import (
@@ -64,7 +64,11 @@ async def twilio_voice_webhook(
         await start_call(
             twilio_call_sid=call_sid,
             from_number=params.get("From", ""),
-            provider_snapshot=build_provider_snapshot(settings),
+            provider_snapshot={
+                "stt": route.stt,
+                "tts": route.tts,
+                "llm": route.llm,
+            },
             tenant_id=route.tenant_id,
             agent_id=route.agent_id,
         )

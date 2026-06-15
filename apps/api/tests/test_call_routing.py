@@ -9,7 +9,13 @@ async def test_resolve_returns_route(mock_db_pool, monkeypatch):
     pool, conn = mock_db_pool
     tenant_id = uuid.uuid4()
     agent_id = uuid.uuid4()
-    conn.fetchrow.return_value = {"agent_id": agent_id, "tenant_id": tenant_id}
+    conn.fetchrow.return_value = {
+        "agent_id": agent_id,
+        "tenant_id": tenant_id,
+        "stt": "deepgram",
+        "tts": "deepgram",
+        "llm": "deepseek_native",
+    }
     monkeypatch.setattr(call_routing, "get_pool", lambda: pool)
 
     route = await call_routing.resolve_agent_by_number("+911234567890")
@@ -17,6 +23,8 @@ async def test_resolve_returns_route(mock_db_pool, monkeypatch):
     assert route is not None
     assert route.tenant_id == tenant_id
     assert route.agent_id == agent_id
+    assert route.stt == "deepgram"
+    assert route.llm == "deepseek_native"
     assert conn.fetchrow.await_args.args[1] == "+911234567890"
 
 

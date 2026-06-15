@@ -53,7 +53,13 @@ def twilio_env(monkeypatch):
 @pytest.fixture
 def resolved_route(monkeypatch):
     """Make the voice webhook resolve the dialed number to a tenant + agent."""
-    route = ResolvedRoute(tenant_id=uuid.uuid4(), agent_id=uuid.uuid4())
+    route = ResolvedRoute(
+        tenant_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+        stt="deepgram",
+        tts="deepgram",
+        llm="deepseek_native",
+    )
     monkeypatch.setattr(
         "app.routes.twilio_webhooks.resolve_agent_by_number",
         AsyncMock(return_value=route),
