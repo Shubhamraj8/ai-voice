@@ -1,4 +1,5 @@
 import json
+import re
 from uuid import UUID
 
 from app.errors import api_error
@@ -15,6 +16,24 @@ from app.models.internal_tenant import (
 )
 from app.models.tenant import Tenant, TenantStatus
 from app.providers.registry import default_provider_config, validate_provider_config
+
+# Default first-agent prompt (kept here, independent of the pipecat-importing
+# conversation_config, so this service stays lightweight).
+DEFAULT_AGENT_SYSTEM_PROMPT = (
+    "You are a helpful AI receptionist for a business. "
+    "Keep every reply under 25 words. Be warm, clear, and concise."
+)
+
+# Default voice for the first agent — a value from the Aura catalogue so the
+# 3.08 voice dropdown shows it as a valid selection.
+DEFAULT_AGENT_VOICE = "aura-asteria-en"
+
+
+def slugify(value: str) -> str:
+    """Lowercase, hyphenated, alphanumeric slug derived from a business name."""
+
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "tenant"
 
 
 def _parse_provider_config(value) -> dict:
@@ -270,6 +289,36 @@ async def create_tenant(conn, body: InternalTenantCreate) -> Tenant:
         body.contact_phone,
     )
     return _row_to_tenant(row)
+
+
+async def create_default_agent(
+    conn,
+    tenant_id: UUID,
+    *,
+    phone_number: str,
+    twilio_sid: str,
+    voice_id: str | None = None,
+) -> Agent:
+    """Insert the tenant's first agent, holding the provisioned number (3.06)."""
+
+    voice = voice_id or DEFAULT_AGENT_VOICE
+    row = await conn.fetchrow(
+        """
+        INSERT INTO agents (
+          tenant_id, name, starter_prompt, system_prompt, voice_id,
+          phone_number, twilio_sid
+        )
+        VALUES ($1, $2, 'receptionist', $3, $4, $5, $6)
+        RETURNING *
+        """,
+        tenant_id,
+        "Main line",
+        DEFAULT_AGENT_SYSTEM_PROMPT,
+        voice,
+        phone_number,
+        twilio_sid,
+    )
+    return Agent.model_validate(dict(row))
 
 
 async def patch_tenant(conn, tenant_id: UUID, body: InternalTenantPatch) -> Tenant:

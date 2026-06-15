@@ -1,8 +1,10 @@
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.db.pool import get_pool
 from app.main import app
 from app.middleware.auth import InternalUserContext, User, require_internal_user
+from app.models.internal_tenant import AuditLogListResponse
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -88,6 +90,74 @@ def test_internal_agents_success():
             assert data["agents"][0]["call_sid"] == "CA1"
         finally:
             app.dependency_overrides.clear()
+
+
+def test_internal_voices_lists_catalogue():
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    try:
+        response = client.get(
+            "/internal/voices", headers={"Authorization": "Bearer test-token"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["voices"]) == 12
+        assert data["default"] in data["voices"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_voice_preview_returns_wav(monkeypatch):
+    class _FakeTTS:
+        async def synthesize(self, text, voice_id, language="en"):
+            yield b"\x00\x01\x02\x03"
+
+    monkeypatch.setattr("app.routes.internal.DeepgramTTS", _FakeTTS)
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    try:
+        response = client.get(
+            "/internal/voices/aura-asteria-en/preview",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "audio/wav"
+        assert response.content.startswith(b"RIFF")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_voice_preview_invalid_voice_returns_422():
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    try:
+        response = client.get(
+            "/internal/voices/not-a-voice/preview",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "invalid_voice_id"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_internal_audit_endpoint(mock_db_pool, monkeypatch):
+    pool, _conn = mock_db_pool
+
+    async def fake_list(conn, **kwargs):
+        return AuditLogListResponse(items=[], total=0, page=1, page_size=50)
+
+    monkeypatch.setattr("app.routes.internal.list_audit_log", fake_list)
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.get(
+            "/internal/audit?actor_type=internal_user",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_internal_ping_forbidden():

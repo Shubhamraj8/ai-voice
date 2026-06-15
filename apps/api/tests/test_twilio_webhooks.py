@@ -1,6 +1,10 @@
+import uuid
+from unittest.mock import AsyncMock
+
 import pytest
 from app.config import get_settings
 from app.main import app
+from app.services.call_routing import ResolvedRoute
 from fastapi.testclient import TestClient
 from twilio.request_validator import RequestValidator
 
@@ -46,11 +50,28 @@ def twilio_env(monkeypatch):
     get_settings.cache_clear()
 
 
+@pytest.fixture
+def resolved_route(monkeypatch):
+    """Make the voice webhook resolve the dialed number to a tenant + agent."""
+    route = ResolvedRoute(
+        tenant_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+        stt="deepgram",
+        tts="deepgram",
+        llm="deepseek_native",
+    )
+    monkeypatch.setattr(
+        "app.routes.twilio_webhooks.resolve_agent_by_number",
+        AsyncMock(return_value=route),
+    )
+    return route
+
+
 def _sign(url: str, params: dict[str, str]) -> str:
     return RequestValidator(AUTH_TOKEN).compute_signature(url, params)
 
 
-def test_voice_webhook_returns_connect_stream_twiml(twilio_env):
+def test_voice_webhook_returns_connect_stream_twiml(twilio_env, resolved_route):
     signature = _sign(VOICE_URL, VOICE_PARAMS)
     response = client.post(
         "/webhooks/twilio/voice",
@@ -67,7 +88,29 @@ def test_voice_webhook_returns_connect_stream_twiml(twilio_env):
     assert '<Stream url="ws://testserver/webhooks/twilio/media" />' in body
 
 
-def test_voice_webhook_plays_consent_disclosure_before_connect(twilio_env):
+def test_voice_webhook_unconfigured_number_hangs_up(twilio_env, monkeypatch):
+    monkeypatch.setattr(
+        "app.routes.twilio_webhooks.resolve_agent_by_number",
+        AsyncMock(return_value=None),
+    )
+    signature = _sign(VOICE_URL, VOICE_PARAMS)
+    response = client.post(
+        "/webhooks/twilio/voice",
+        data=VOICE_PARAMS,
+        headers={"X-Twilio-Signature": signature},
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    assert "not configured" in body
+    assert "<Hangup/>" in body
+    assert "<Connect>" not in body
+    assert "<Stream" not in body
+
+
+def test_voice_webhook_plays_consent_disclosure_before_connect(
+    twilio_env, resolved_route
+):
     signature = _sign(VOICE_URL, VOICE_PARAMS)
     response = client.post(
         "/webhooks/twilio/voice",
@@ -123,7 +166,9 @@ def test_status_webhook_rejects_invalid_signature(twilio_env):
     assert response.json()["detail"]["code"] == "twilio_signature_invalid"
 
 
-def test_build_media_stream_url_uses_wss_for_https(twilio_env, monkeypatch):
+def test_build_media_stream_url_uses_wss_for_https(
+    twilio_env, monkeypatch, resolved_route
+):
     monkeypatch.setenv("PUBLIC_API_BASE_URL", "https://ai-voice-ocy9.onrender.com")
     get_settings.cache_clear()
 

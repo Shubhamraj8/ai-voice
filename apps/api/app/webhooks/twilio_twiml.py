@@ -26,6 +26,21 @@ def build_media_stream_url(settings: Settings) -> str:
     return f"{ws_base.rstrip('/')}{path}"
 
 
+NOT_CONFIGURED_MESSAGE = "Sorry, this number is not configured for service. Goodbye."
+
+
+def build_not_configured_twiml(message: str = NOT_CONFIGURED_MESSAGE) -> str:
+    """TwiML for an inbound call to a number with no active agent (ticket 3.09)."""
+    safe = escape(message)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Response>"
+        f"<Say>{safe}</Say>"
+        "<Hangup/>"
+        "</Response>"
+    )
+
+
 def build_voice_connect_twiml(
     stream_url: str,
     *,

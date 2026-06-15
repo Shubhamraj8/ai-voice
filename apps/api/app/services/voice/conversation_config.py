@@ -22,13 +22,17 @@ MAX_LLM_OUTPUT_TOKENS = 200
 GREETING_TEXT = "Hello! Thanks for calling. How can I help you today?"
 
 
-def build_llm_context() -> LLMContext:
-    """Return a fresh LLM context seeded with the system prompt and the spoken
-    greeting, so the model continues coherently after the static greeting."""
+def build_llm_context(system_prompt: str | None = None) -> LLMContext:
+    """Return a fresh LLM context seeded with the agent's system prompt and the
+    spoken greeting, so the model continues coherently after the static greeting.
+
+    Falls back to the default ``SYSTEM_PROMPT`` when no per-agent prompt is given
+    (ticket 3.10).
+    """
 
     return LLMContext(
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
             {"role": "assistant", "content": GREETING_TEXT},
         ]
     )

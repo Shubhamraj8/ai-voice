@@ -4,7 +4,8 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, Request, Response
 
 from app.config import get_settings
-from app.services.calls import build_provider_snapshot, end_call, start_call
+from app.services.call_routing import resolve_agent_by_number
+from app.services.calls import end_call, start_call
 from app.services.recording import process_recording, start_call_recording
 from app.services.voice import agent_registry
 from app.webhooks.twilio_logging import (
@@ -14,7 +15,11 @@ from app.webhooks.twilio_logging import (
 )
 from app.webhooks.twilio_logging import twilio_payload_for_log as log_fields
 from app.webhooks.twilio_signature import validate_twilio_request
-from app.webhooks.twilio_twiml import build_media_stream_url, build_voice_connect_twiml
+from app.webhooks.twilio_twiml import (
+    build_media_stream_url,
+    build_not_configured_twiml,
+    build_voice_connect_twiml,
+)
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/webhooks/twilio", tags=["twilio-webhooks"])
@@ -36,6 +41,21 @@ async def twilio_voice_webhook(
     validate_twilio_request(request, params)
 
     settings = get_settings()
+
+    # Resolve the dialed number to its tenant + agent (ticket 3.09).
+    to_number = params.get("To", "")
+    route = await resolve_agent_by_number(to_number)
+
+    if route is None:
+        logger.info(
+            "twilio_voice_unconfigured",
+            to_number=to_number,
+            **log_fields(params, fields=VOICE_LOG_FIELDS),
+        )
+        return Response(
+            content=build_not_configured_twiml(), media_type="application/xml"
+        )
+
     stream_url = build_media_stream_url(settings)
     twiml = build_voice_connect_twiml(stream_url)
 
@@ -44,7 +64,13 @@ async def twilio_voice_webhook(
         await start_call(
             twilio_call_sid=call_sid,
             from_number=params.get("From", ""),
-            provider_snapshot=build_provider_snapshot(settings),
+            provider_snapshot={
+                "stt": route.stt,
+                "tts": route.tts,
+                "llm": route.llm,
+            },
+            tenant_id=route.tenant_id,
+            agent_id=route.agent_id,
         )
         # Start the Twilio recording out-of-band so the webhook stays fast.
         background_tasks.add_task(start_call_recording, call_sid, settings)
@@ -52,6 +78,8 @@ async def twilio_voice_webhook(
     logger.info(
         "twilio_voice_webhook",
         stream_url=stream_url,
+        resolved_tenant_id=str(route.tenant_id),
+        resolved_agent_id=str(route.agent_id),
         **log_fields(params, fields=VOICE_LOG_FIELDS),
     )
     return Response(content=twiml, media_type="application/xml")

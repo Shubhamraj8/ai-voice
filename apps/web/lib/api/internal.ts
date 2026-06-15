@@ -55,6 +55,9 @@ export type TenantDetail = {
     phone_number: string;
     voice_id: string;
     is_active: boolean;
+    starter_prompt: string;
+    system_prompt: string;
+    tools: string[];
   }>;
   recent_calls: Array<{
     id: string;
@@ -77,6 +80,8 @@ export type TenantDetail = {
   audit_page: number;
   audit_page_size: number;
 };
+
+export type TenantAgent = TenantDetail["agents"][number];
 
 type TenantQuery = {
   page?: number;
@@ -162,4 +167,123 @@ export async function patchTenant(
     method: "PATCH",
     body: JSON.stringify(body),
   });
+}
+
+export type AvailableNumber = {
+  phone_number: string;
+  friendly_name: string | null;
+  locality: string | null;
+  region: string | null;
+};
+
+export async function searchAvailableNumbers(
+  accessToken: string,
+  region: string,
+  limit = 5
+): Promise<AvailableNumber[]> {
+  const query = `?region=${encodeURIComponent(region)}&limit=${limit}`;
+  const result = await internalFetch<{ numbers: AvailableNumber[] }>(
+    `/internal/tenants/available-numbers${query}`,
+    accessToken
+  );
+  return result.numbers;
+}
+
+export type ProvisionTenantBody = {
+  business_name: string;
+  phone_number: string;
+  market: string;
+  region: string;
+  contact_name?: string | null;
+  contact_email?: string | null;
+};
+
+export async function provisionTenant(
+  accessToken: string,
+  body: ProvisionTenantBody
+): Promise<{ id: string; slug: string; business_name: string }> {
+  return internalFetch(`/internal/tenants/provision`, accessToken, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function patchAgent(
+  accessToken: string,
+  tenantId: string,
+  agentId: string,
+  body: Record<string, unknown>
+): Promise<TenantAgent> {
+  return internalFetch(`/internal/tenants/${tenantId}/agents/${agentId}`, accessToken, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function fetchVoiceCatalog(accessToken: string): Promise<string[]> {
+  const result = await internalFetch<{ voices: string[]; default: string }>(
+    "/internal/voices",
+    accessToken
+  );
+  return result.voices;
+}
+
+export async function fetchVoicePreview(accessToken: string, voiceId: string): Promise<Blob> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/internal/voices/${encodeURIComponent(voiceId)}/preview`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Voice preview failed (${response.status})`);
+  }
+  return response.blob();
+}
+
+export type AuditLogRow = {
+  id: string;
+  actor_user_id: string | null;
+  actor_email: string | null;
+  actor_type: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  tenant_id: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type AuditLogListResponse = {
+  items: AuditLogRow[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type AuditLogQuery = {
+  page?: number;
+  page_size?: number;
+  actor_type?: string;
+  action?: string;
+  target_type?: string;
+  tenant?: string;
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+};
+
+export async function fetchAuditLog(
+  accessToken: string,
+  params: AuditLogQuery = {}
+): Promise<AuditLogListResponse> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  }
+  const qs = query.toString();
+  return internalFetch(`/internal/audit${qs ? `?${qs}` : ""}`, accessToken);
 }

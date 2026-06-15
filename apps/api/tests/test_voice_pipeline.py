@@ -74,13 +74,9 @@ def test_twilio_media_route_registered():
 
     from app.main import app
 
-    websocket_paths = [
-        route.path
-        for route in app.routes
-        if getattr(route, "path", None) == "/webhooks/twilio/media"
-    ]
-
-    assert websocket_paths == ["/webhooks/twilio/media"]
+    # Resolve by route name so this is robust to how FastAPI flattens nested
+    # routers into app.routes (which differs across versions).
+    assert app.url_path_for("twilio_media_stream") == "/webhooks/twilio/media"
 
 
 def test_audio_config_sample_rates():
@@ -280,6 +276,18 @@ def test_greeting_seeded_into_context():
     assert GREETING_TEXT.strip()
 
     assert len(GREETING_TEXT.split()) <= 15
+
+
+def test_build_llm_context_uses_custom_system_prompt():
+
+    context = build_llm_context("You are a dental clinic receptionist.")
+
+    assert context.messages[0]["role"] == "system"
+
+    assert context.messages[0]["content"] == "You are a dental clinic receptionist."
+
+    # Falls back to the default prompt when none is provided.
+    assert SYSTEM_PROMPT in build_llm_context().messages[0]["content"]
 
 
 def test_trim_conversation_history_keeps_system_and_last_ten_turns():

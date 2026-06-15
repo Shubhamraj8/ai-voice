@@ -145,3 +145,25 @@ def make_pipeline(tenant: Tenant) -> Pipeline:
     tts = PROVIDERS["tts"][cfg.tts]()
     llm = PROVIDERS["llm"][cfg.llm]()
     return Pipeline(stt=stt, tts=tts, llm=llm)
+
+
+# Provider classes with a real implementation (the rest are Phase 3/4 stubs).
+LIVE_PROVIDER_CLASSES: frozenset[type] = frozenset(
+    {DeepgramSTT, DeepgramTTS, DeepSeekNativeLLM}
+)
+
+
+def ensure_live_providers(config: ProviderConfig) -> None:
+    """Raise if any provider in *config* is still a stub (ticket 3.10).
+
+    Checked at pipeline construction so a misconfigured tenant fails clearly up
+    front rather than mid-call.
+    """
+    for role in ("stt", "tts", "llm"):
+        key = getattr(config, role)
+        cls = PROVIDERS[role][key]
+        if cls not in LIVE_PROVIDER_CLASSES:
+            raise ValueError(
+                f"Provider {role}={key!r} ({cls.__name__}) is not implemented "
+                "yet (stub) — cannot build a live pipeline."
+            )

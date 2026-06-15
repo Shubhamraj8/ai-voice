@@ -58,6 +58,28 @@ class AuditLogEntry(BaseModel):
     created_at: datetime
 
 
+class AuditLogRow(BaseModel):
+    """A row in the global audit-log viewer (ticket 3.12)."""
+
+    id: UUID
+    actor_user_id: UUID | None = None
+    actor_email: str | None = None
+    actor_type: str
+    action: str
+    target_type: str | None = None
+    target_id: UUID | None = None
+    tenant_id: UUID | None = None
+    payload: dict | None = None
+    created_at: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogRow]
+    total: int
+    page: int
+    page_size: int
+
+
 class TenantDetailResponse(BaseModel):
     tenant: Tenant
     agent_count: int = 0
@@ -85,6 +107,28 @@ class InternalTenantCreate(BaseModel):
     contact_name: str | None = None
     contact_phone: str | None = None
     provider_config: ProviderConfig | None = None
+
+
+class AvailableNumber(BaseModel):
+    phone_number: str
+    friendly_name: str | None = None
+    locality: str | None = None
+    region: str | None = None
+
+
+class AvailableNumbersResponse(BaseModel):
+    numbers: list[AvailableNumber] = Field(default_factory=list)
+
+
+class TenantProvisionRequest(BaseModel):
+    """Create a tenant and provision its first Twilio number in one flow (3.06)."""
+
+    business_name: str = Field(min_length=1, max_length=200)
+    phone_number: str = Field(min_length=1)  # chosen from the candidate list
+    market: TenantMarket = TenantMarket.INDIA_ENGLISH
+    region: str = "IN"
+    contact_name: str | None = None
+    contact_email: str | None = None
 
 
 class InternalTenantPatch(BaseModel):
