@@ -74,13 +74,9 @@ def test_twilio_media_route_registered():
 
     from app.main import app
 
-    websocket_paths = [
-        route.path
-        for route in app.routes
-        if getattr(route, "path", None) == "/webhooks/twilio/media"
-    ]
-
-    assert websocket_paths == ["/webhooks/twilio/media"]
+    # Resolve by route name so this is robust to how FastAPI flattens nested
+    # routers into app.routes (which differs across versions).
+    assert app.url_path_for("twilio_media_stream") == "/webhooks/twilio/media"
 
 
 def test_audio_config_sample_rates():
