@@ -115,19 +115,38 @@ async def get_call_id_by_sid(twilio_call_sid: str) -> UUID | None:
         return None
 
 
-async def get_call_route_by_sid(twilio_call_sid: str):
-    """Return the (id, tenant_id) row for a CallSid, or None (ticket 3.09)."""
+async def get_call_pipeline_context(twilio_call_sid: str):
+    """Return the call id + the tenant/agent settings needed to build the
+    pipeline (ticket 3.09/3.10), or None.
+
+    Joins calls → tenants → agents so the websocket can build a per-agent
+    pipeline (voice, prompt) honouring the tenant's provider_config.
+    """
 
     try:
         pool = get_pool()
         async with pool.acquire() as conn:
             return await conn.fetchrow(
-                "SELECT id, tenant_id FROM calls WHERE twilio_call_sid = $1",
+                """
+                SELECT
+                  c.id AS call_id,
+                  c.tenant_id,
+                  a.voice_id,
+                  a.system_prompt,
+                  t.language,
+                  t.provider_config->>'stt' AS stt,
+                  t.provider_config->>'tts' AS tts,
+                  t.provider_config->>'llm' AS llm
+                FROM calls c
+                JOIN tenants t ON t.id = c.tenant_id
+                JOIN agents a ON a.id = c.agent_id
+                WHERE c.twilio_call_sid = $1
+                """,
                 twilio_call_sid,
             )
     except Exception as exc:
         logger.error(
-            "call_route_lookup_failed",
+            "call_context_lookup_failed",
             error=str(exc),
             twilio_call_sid=twilio_call_sid,
         )

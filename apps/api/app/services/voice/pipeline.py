@@ -29,7 +29,9 @@ from pipecat.transports.websocket.fastapi import (
 from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.workers.runner import WorkerRunner
 
-from app.services.calls import get_call_route_by_sid
+from app.models.tenant import ProviderConfig
+from app.providers.registry import ensure_live_providers
+from app.services.calls import get_call_pipeline_context
 from app.services.voice import agent_registry
 from app.services.voice.audio_config import (
     STT_INPUT_SAMPLE_RATE,
@@ -245,8 +247,14 @@ def _build_conversation_pipeline(
     *,
     call_db_id: UUID | None = None,
     tenant_id: UUID | None = None,
+    voice_id: str | None = None,
+    system_prompt: str | None = None,
 ) -> ConversationPipeline:
-    """Wire Deepgram STT → DeepSeek LLM → Deepgram TTS with turn detection (2.12)."""
+    """Wire Deepgram STT → DeepSeek LLM → Deepgram TTS with turn detection (2.12).
+
+    ``voice_id`` and ``system_prompt`` come from the resolved agent (3.10),
+    falling back to the configured defaults.
+    """
 
     from pipecat.services.deepgram.stt import DeepgramSTTService
     from pipecat.services.deepgram.tts import DeepgramTTSService
@@ -266,10 +274,10 @@ def _build_conversation_pipeline(
         api_key=settings.deepgram_api_key,
         sample_rate=TTS_OUTPUT_SAMPLE_RATE,
         encoding="linear16",
-        settings=DeepgramTTSService.Settings(voice=settings.deepgram_voice),
+        settings=DeepgramTTSService.Settings(voice=voice_id or settings.deepgram_voice),
     )
 
-    context = build_llm_context()
+    context = build_llm_context(system_prompt)
 
     context_aggregator = LLMContextAggregatorPair(
         context,
@@ -419,15 +427,21 @@ async def run_minimal_twilio_pipeline(
     hello_pcm: bytes | None = None
 
     if use_full_pipeline:
-        route = await get_call_route_by_sid(call_id) if call_id else None
-        call_db_id = route["id"] if route else None
-        call_tenant_id = route["tenant_id"] if route else None
+        ctx = await get_call_pipeline_context(call_id) if call_id else None
+
+        if ctx is not None:
+            # Stub/misconfigured providers fail here, before the call runs.
+            ensure_live_providers(
+                ProviderConfig(stt=ctx["stt"], tts=ctx["tts"], llm=ctx["llm"])
+            )
 
         conversation = _build_conversation_pipeline(
             transport,
             settings,
-            call_db_id=call_db_id,
-            tenant_id=call_tenant_id,
+            call_db_id=ctx["call_id"] if ctx else None,
+            tenant_id=ctx["tenant_id"] if ctx else None,
+            voice_id=ctx["voice_id"] if ctx else None,
+            system_prompt=ctx["system_prompt"] if ctx else None,
         )
 
         worker = conversation.worker

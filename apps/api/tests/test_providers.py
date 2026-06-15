@@ -32,6 +32,7 @@ from app.providers.deepgram_tts import (
     _SAMPLE_RATE,
     VOICE_CATALOGUE,
 )
+from app.providers.registry import ensure_live_providers
 from app.providers.stubs import (
     DeepgramSTT,
     DeepgramSTTEnterprise,
@@ -166,6 +167,22 @@ class TestMakePipeline:
         assert p1.stt is not p2.stt
         assert p1.tts is not p2.tts
         assert p1.llm is not p2.llm
+
+
+class TestEnsureLiveProviders:
+    def test_india_english_stack_is_live(self):
+        tenant = _make_tenant("deepgram", "deepgram", "deepseek_native")
+        ensure_live_providers(tenant.provider_config)  # must not raise
+
+    def test_stub_stt_raises(self):
+        tenant = _make_tenant("deepgram_baa", "deepgram", "deepseek_native")
+        with pytest.raises(ValueError):
+            ensure_live_providers(tenant.provider_config)
+
+    def test_stub_llm_raises(self):
+        tenant = _make_tenant("deepgram", "deepgram", "together_deepseek")
+        with pytest.raises(ValueError):
+            ensure_live_providers(tenant.provider_config)
 
 
 # ---------------------------------------------------------------------------

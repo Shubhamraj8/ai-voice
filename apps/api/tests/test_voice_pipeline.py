@@ -282,6 +282,18 @@ def test_greeting_seeded_into_context():
     assert len(GREETING_TEXT.split()) <= 15
 
 
+def test_build_llm_context_uses_custom_system_prompt():
+
+    context = build_llm_context("You are a dental clinic receptionist.")
+
+    assert context.messages[0]["role"] == "system"
+
+    assert context.messages[0]["content"] == "You are a dental clinic receptionist."
+
+    # Falls back to the default prompt when none is provided.
+    assert SYSTEM_PROMPT in build_llm_context().messages[0]["content"]
+
+
 def test_trim_conversation_history_keeps_system_and_last_ten_turns():
 
     context = build_llm_context()
