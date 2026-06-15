@@ -43,11 +43,9 @@ async def post_agent(
         actor_id=ctx.user.id,
         action="internal.agent.create",
         tenant_id=tenant_id,
-        payload={
-            "agent_id": str(agent.id),
-            "name": agent.name,
-            "phone_number": agent.phone_number,
-        },
+        target_type="agent",
+        target_id=agent.id,
+        payload={"name": agent.name, "phone_number": agent.phone_number},
     )
     return agent
 
@@ -67,10 +65,9 @@ async def patch_agent_route(
         actor_id=ctx.user.id,
         action="internal.agent.update",
         tenant_id=tenant_id,
-        payload={
-            "agent_id": str(agent_id),
-            **body.model_dump(exclude_unset=True, mode="json"),
-        },
+        target_type="agent",
+        target_id=agent_id,
+        payload=body.model_dump(exclude_unset=True, mode="json"),
     )
     return agent
 
@@ -89,6 +86,7 @@ async def delete_agent_route(
         actor_id=ctx.user.id,
         action="internal.agent.delete",
         tenant_id=tenant_id,
-        payload={"agent_id": str(agent_id)},
+        target_type="agent",
+        target_id=agent_id,
     )
     return agent

@@ -106,6 +106,8 @@ async def post_internal_tenant(
         actor_id=ctx.user.id,
         action="internal.tenant.create",
         tenant_id=tenant.id,
+        target_type="tenant",
+        target_id=tenant.id,
         payload={
             "slug": tenant.slug,
             "business_name": tenant.business_name,
@@ -171,6 +173,8 @@ async def provision_tenant(
         actor_id=ctx.user.id,
         action="internal.tenant.create",
         tenant_id=tenant.id,
+        target_type="tenant",
+        target_id=tenant.id,
         payload={
             "slug": tenant.slug,
             "business_name": tenant.business_name,
@@ -181,6 +185,8 @@ async def provision_tenant(
         actor_id=ctx.user.id,
         action="internal.tenant.purchase_number",
         tenant_id=tenant.id,
+        target_type="tenant",
+        target_id=tenant.id,
         payload={
             "phone_number": body.phone_number,
             "twilio_sid": number_sid,
@@ -191,6 +197,8 @@ async def provision_tenant(
         actor_id=ctx.user.id,
         action="internal.tenant.configure_webhook",
         tenant_id=tenant.id,
+        target_type="tenant",
+        target_id=tenant.id,
         payload={"number_sid": number_sid, "agent_id": str(agent.id)},
     )
 
@@ -211,6 +219,8 @@ async def patch_internal_tenant(
         actor_id=ctx.user.id,
         action="internal.tenant.update",
         tenant_id=tenant.id,
+        target_type="tenant",
+        target_id=tenant.id,
         payload=body.model_dump(exclude_unset=True, mode="json"),
     )
     return tenant
