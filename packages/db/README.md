@@ -24,12 +24,12 @@ These steps cannot be done from this repo alone.
 
 From the project dashboard:
 
-| Value | Where to find it |
-|-------|------------------|
-| `SUPABASE_URL` | **Project Settings → API → Project URL** |
-| `SUPABASE_ANON_KEY` | **Project Settings → API → anon public** |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Project Settings → API → service_role** (keep secret) |
-| `DATABASE_URL` | **Project Settings → Database → Connection string → URI** |
+| Value                       | Where to find it                                          |
+| --------------------------- | --------------------------------------------------------- |
+| `SUPABASE_URL`              | **Project Settings → API → Project URL**                  |
+| `SUPABASE_ANON_KEY`         | **Project Settings → API → anon public**                  |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Project Settings → API → service_role** (keep secret)   |
+| `DATABASE_URL`              | **Project Settings → Database → Connection string → URI** |
 
 Steps for `DATABASE_URL`:
 
@@ -111,15 +111,15 @@ pnpm --filter @ai-voice/db run migrate:reset
 
 ## Migrations included (ticket 1.03)
 
-| Version | Description |
-|---------|-------------|
-| `001_extensions` | `uuid-ossp`, `vector` |
-| `002_tenants` | `tenants` |
-| `003_tenant_users_internal_users` | `tenant_users`, `internal_users` |
-| `004_agents_audit_log` | `agents`, `audit_log` |
-| `005_calls_call_messages` | `calls`, `call_messages` |
-| `006_rls_policies` | RLS + `current_tenant_id()` |
-| `007_signup_creates_tenant` | `handle_new_user()` trigger on `auth.users` |
+| Version                           | Description                                 |
+| --------------------------------- | ------------------------------------------- |
+| `001_extensions`                  | `uuid-ossp`, `vector`                       |
+| `002_tenants`                     | `tenants`                                   |
+| `003_tenant_users_internal_users` | `tenant_users`, `internal_users`            |
+| `004_agents_audit_log`            | `agents`, `audit_log`                       |
+| `005_calls_call_messages`         | `calls`, `call_messages`                    |
+| `006_rls_policies`                | RLS + `current_tenant_id()`                 |
+| `007_signup_creates_tenant`       | `handle_new_user()` trigger on `auth.users` |
 
 ## Signup tenant provisioning (ticket 1.09)
 
@@ -153,10 +153,10 @@ Migration `006_rls_policies` enables RLS on all tenant-scoped tables plus member
 
 Each data table has two policies for the `authenticated` role:
 
-| Policy | Who | Rule |
-|--------|-----|------|
-| `tenant_isolation` | Tenant users | Row `tenant_id` in `user_tenant_ids()` (or tenant id in that set for `tenants`) |
-| `internal_full_access` | Internal admins | `is_internal_user()` |
+| Policy                 | Who             | Rule                                                                            |
+| ---------------------- | --------------- | ------------------------------------------------------------------------------- |
+| `tenant_isolation`     | Tenant users    | Row `tenant_id` in `user_tenant_ids()` (or tenant id in that set for `tenants`) |
+| `internal_full_access` | Internal admins | `is_internal_user()`                                                            |
 
 `tenant_users` uses `user_id = auth.uid()` (avoids self-referential recursion). `internal_users` combines self-read and internal full-access policies.
 
@@ -233,3 +233,44 @@ SELECT id, email FROM auth.users WHERE email = 'colleague@yourcompany.com';
 - **`connection timed out`** — use **Direct** connection string, not pooler, for migrations
 - **`permission denied to create extension`** — run migrations as the `postgres` user via the dashboard connection string (default on new projects)
 - **`relation auth.users does not exist`** — you are not connected to a Supabase database (Auth schema missing)
+
+## Knowledge embeddings index (ticket 4.04)
+
+`knowledge_embeddings` (migration `015`) stores RAG chunks with a
+`vector(1536)` column and an **ivfflat** index (`lists = 100`) for cosine
+similarity. Queries always filter by `tenant_id` first (btree index) so a
+tenant's search never scans another tenant's vectors.
+
+### Rebuild the index after a large ingest
+
+ivfflat clusters are chosen at build time, so recall degrades if the table grew
+a lot since the index was built. Rebuild with a larger `lists` (rule of thumb:
+`rows / 1000`, capped around `sqrt(rows)`), giving the build more memory:
+
+```sql
+SET maintenance_work_mem = '512MB';
+REINDEX INDEX CONCURRENTLY knowledge_embeddings_embedding_idx;
+-- or, to change lists, drop and recreate:
+-- DROP INDEX knowledge_embeddings_embedding_idx;
+-- CREATE INDEX knowledge_embeddings_embedding_idx ON knowledge_embeddings
+--   USING ivfflat (embedding vector_cosine_ops) WITH (lists = 300);
+```
+
+### Smoke test (run on a real Postgres, not in CI)
+
+Insert ~1000 random vectors and confirm a tenant-scoped top-5 query stays fast:
+
+```sql
+INSERT INTO knowledge_embeddings (tenant_id, document_id, chunk_index, content, embedding)
+SELECT '<tenant-uuid>', '<doc-uuid>', g, 'chunk ' || g,
+       (SELECT array_agg(random())::vector FROM generate_series(1, 1536))
+FROM generate_series(1, 1000) g;
+
+EXPLAIN ANALYZE
+SELECT id FROM knowledge_embeddings
+WHERE tenant_id = '<tenant-uuid>'
+ORDER BY embedding <=> (SELECT array_agg(random())::vector FROM generate_series(1, 1536))
+LIMIT 5;
+```
+
+Expect the ivfflat index in the plan and p95 under 50ms at this size.
