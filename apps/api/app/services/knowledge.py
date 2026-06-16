@@ -15,7 +15,7 @@ import structlog
 
 from app.config import get_settings
 from app.errors import api_error
-from app.models.knowledge import KnowledgeDocument
+from app.models.knowledge import KnowledgeDocument, KnowledgeDocumentDetail
 from app.services.storage import upload_document
 
 logger = structlog.get_logger(__name__)
@@ -75,7 +75,8 @@ async def store_document(
     """
 
     existing = await conn.fetchrow(
-        "SELECT id FROM knowledge_documents WHERE tenant_id = $1 AND sha256 = $2",
+        "SELECT id FROM knowledge_documents "
+        "WHERE tenant_id = $1 AND sha256 = $2 AND deleted_at IS NULL",
         tenant_id,
         sha256,
     )
@@ -112,3 +113,78 @@ async def store_document(
         bytes=len(data),
     )
     return KnowledgeDocument.model_validate(dict(row))
+
+
+async def list_documents(conn, *, tenant_id: UUID) -> list[KnowledgeDocument]:
+    """All non-deleted documents for a tenant, newest first."""
+
+    rows = await conn.fetch(
+        "SELECT * FROM knowledge_documents "
+        "WHERE tenant_id = $1 AND deleted_at IS NULL "
+        "ORDER BY uploaded_at DESC",
+        tenant_id,
+    )
+    return [KnowledgeDocument.model_validate(dict(row)) for row in rows]
+
+
+async def get_document_detail(
+    conn, *, tenant_id: UUID, document_id: UUID
+) -> KnowledgeDocumentDetail:
+    """One document with ingestion progress (chunks_total / chunks_done)."""
+
+    row = await conn.fetchrow(
+        "SELECT * FROM knowledge_documents "
+        "WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL",
+        document_id,
+        tenant_id,
+    )
+    if row is None:
+        raise api_error(404, "document_not_found", "Knowledge document not found")
+
+    done = await conn.fetchval(
+        "SELECT count(*) FROM knowledge_embeddings WHERE document_id = $1",
+        document_id,
+    )
+    data = dict(row)
+    return KnowledgeDocumentDetail.model_validate(
+        {**data, "chunks_total": data.get("chunk_count"), "chunks_done": int(done or 0)}
+    )
+
+
+async def mark_for_reprocess(conn, *, tenant_id: UUID, document_id: UUID) -> None:
+    """Flip a document back to ``pending`` so ingestion can be re-run."""
+
+    row = await conn.fetchrow(
+        "UPDATE knowledge_documents "
+        "SET status = 'pending', error = NULL, processed_at = NULL "
+        "WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL "
+        "RETURNING id",
+        document_id,
+        tenant_id,
+    )
+    if row is None:
+        raise api_error(404, "document_not_found", "Knowledge document not found")
+
+
+async def soft_delete_document(conn, *, tenant_id: UUID, document_id: UUID) -> str:
+    """Soft-delete the row and purge its embeddings in one transaction. Returns
+    the ``storage_path`` so the caller can delete the file from storage."""
+
+    row = await conn.fetchrow(
+        "SELECT storage_path FROM knowledge_documents "
+        "WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL",
+        document_id,
+        tenant_id,
+    )
+    if row is None:
+        raise api_error(404, "document_not_found", "Knowledge document not found")
+
+    async with conn.transaction():
+        await conn.execute(
+            "DELETE FROM knowledge_embeddings WHERE document_id = $1", document_id
+        )
+        await conn.execute(
+            "UPDATE knowledge_documents SET deleted_at = now() WHERE id = $1",
+            document_id,
+        )
+    return row["storage_path"]

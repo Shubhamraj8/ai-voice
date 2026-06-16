@@ -106,6 +106,29 @@ async def download_document(*, path: str) -> bytes | None:
     return await _download_object(bucket=get_settings().knowledge_bucket, path=path)
 
 
+async def _delete_object(*, bucket: str, path: str) -> bool:
+    """Delete ``{bucket}/{path}``; True on success (or already gone)."""
+
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    object_url = f"{base}/storage/v1/object/{bucket}/{quote(path, safe='/')}"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(object_url, headers=_auth_headers())
+            response.raise_for_status()
+        logger.info("object_deleted", bucket=bucket, path=path)
+        return True
+    except Exception as exc:
+        logger.error("object_delete_failed", bucket=bucket, path=path, error=str(exc))
+        return False
+
+
+async def delete_document(*, path: str) -> bool:
+    """Delete a knowledge document from the knowledge bucket (ticket 4.02)."""
+    return await _delete_object(bucket=get_settings().knowledge_bucket, path=path)
+
+
 async def create_signed_url(*, path: str, expires_in: int | None = None) -> str | None:
     """Return a time-limited signed URL for ``recordings/{path}`` playback."""
 

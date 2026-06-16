@@ -275,6 +275,18 @@ LIMIT 5;
 
 Expect the ivfflat index in the plan and p95 under 50ms at this size.
 
+## Knowledge document CRUD (ticket 4.02)
+
+Migration `017` evolves `knowledge_documents` for the dashboard CRUD:
+
+- `deleted_at timestamptz` — **soft delete**. The row is kept for audit while its
+  embeddings and storage file are purged on delete (`DELETE` endpoint).
+- `chunk_count int` — total chunks, set during ingestion so the detail endpoint
+  can show `chunks_total` / `chunks_done` progress.
+- The plain `UNIQUE (tenant_id, sha256)` constraint is replaced with a **partial
+  unique index** `WHERE deleted_at IS NULL`, so the same file can be re-uploaded
+  after it was deleted (dedup only considers live documents).
+
 ## Knowledge retrieval (ticket 4.05)
 
 Migration `016` adds RLS to `knowledge_embeddings` (same `tenant_isolation` +

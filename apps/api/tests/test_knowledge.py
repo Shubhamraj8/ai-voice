@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.db.pool import get_pool
@@ -14,6 +14,14 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
+
+class _FakeTxn:
+    async def __aenter__(self):
+        return None
+
+    async def __aexit__(self, *args):
+        return False
 
 
 def _internal_ctx():
@@ -152,5 +160,149 @@ def test_upload_endpoint_creates_document(mock_db_pool, monkeypatch):
         assert response.json()["filename"] == "menu.pdf"
         audit.assert_awaited_once()
         ingest.assert_awaited_once_with(doc.id)
+    finally:
+        app.dependency_overrides.clear()
+
+
+# --- list / detail -----------------------------------------------------------
+
+
+def test_list_documents_returns_non_deleted(mock_db_pool):
+    pool, conn = mock_db_pool
+    tenant_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    conn.fetch.return_value = [_doc_row(tenant_id, now), _doc_row(tenant_id, now)]
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.get(f"/internal/tenants/{tenant_id}/knowledge")
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_document_detail_includes_progress(mock_db_pool):
+    pool, conn = mock_db_pool
+    tenant_id = uuid.uuid4()
+    doc_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    row = {**_doc_row(tenant_id, now), "id": doc_id, "chunk_count": 42}
+    conn.fetchrow.return_value = row
+    conn.fetchval.return_value = 10
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.get(f"/internal/tenants/{tenant_id}/knowledge/{doc_id}")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["chunks_total"] == 42
+        assert body["chunks_done"] == 10
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_document_detail_404(mock_db_pool):
+    pool, conn = mock_db_pool
+    conn.fetchrow.return_value = None
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.get(
+            f"/internal/tenants/{uuid.uuid4()}/knowledge/{uuid.uuid4()}"
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"]["code"] == "document_not_found"
+    finally:
+        app.dependency_overrides.clear()
+
+
+# --- reprocess ---------------------------------------------------------------
+
+
+def test_reprocess_flips_to_pending_and_enqueues(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    tenant_id = uuid.uuid4()
+    doc_id = uuid.uuid4()
+    conn.fetchrow.return_value = {"id": doc_id}  # UPDATE ... RETURNING id
+    audit = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_knowledge.log_internal_action", audit)
+    ingest = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_knowledge.process_document", ingest)
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.post(
+            f"/internal/tenants/{tenant_id}/knowledge/{doc_id}/reprocess"
+        )
+        assert response.status_code == 202
+        assert response.json()["status"] == "pending"
+        audit.assert_awaited_once()
+        ingest.assert_awaited_once_with(doc_id)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_reprocess_404(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    conn.fetchrow.return_value = None
+    monkeypatch.setattr("app.routes.internal_knowledge.process_document", AsyncMock())
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.post(
+            f"/internal/tenants/{uuid.uuid4()}/knowledge/{uuid.uuid4()}/reprocess"
+        )
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+
+# --- delete ------------------------------------------------------------------
+
+
+def test_delete_purges_embeddings_and_storage(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    tenant_id = uuid.uuid4()
+    doc_id = uuid.uuid4()
+    conn.fetchrow.return_value = {"storage_path": f"knowledge/{tenant_id}/{doc_id}.pdf"}
+    conn.transaction = MagicMock(return_value=_FakeTxn())
+    delete_obj = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.routes.internal_knowledge.delete_document", delete_obj)
+    audit = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_knowledge.log_internal_action", audit)
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.delete(f"/internal/tenants/{tenant_id}/knowledge/{doc_id}")
+        assert response.status_code == 204
+        delete_obj.assert_awaited_once_with(path=f"{tenant_id}/{doc_id}.pdf")
+        audit.assert_awaited_once()
+        # embeddings delete + soft-delete update both ran
+        assert conn.execute.await_count == 2
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_delete_404(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    conn.fetchrow.return_value = None
+    monkeypatch.setattr(
+        "app.routes.internal_knowledge.delete_document", AsyncMock(return_value=True)
+    )
+
+    app.dependency_overrides[require_internal_user] = _internal_ctx
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        response = client.delete(
+            f"/internal/tenants/{uuid.uuid4()}/knowledge/{uuid.uuid4()}"
+        )
+        assert response.status_code == 404
     finally:
         app.dependency_overrides.clear()

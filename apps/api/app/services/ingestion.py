@@ -172,6 +172,14 @@ async def process_document(document_id: UUID) -> None:
         if not chunks:
             raise RuntimeError("no extractable text in document")
 
+        # Record the target up front so the detail endpoint can show progress.
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE knowledge_documents SET chunk_count=$2 WHERE id=$1",
+                document_id,
+                len(chunks),
+            )
+
         embeddings = await _embed_in_batches(chunks)
         total_tokens = sum(c.token_count for c in chunks)
 
