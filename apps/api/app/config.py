@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # Knowledge base → Supabase Storage (ticket 4.01)
     knowledge_bucket: str = "knowledge"
 
+    # Embeddings + retrieval (tickets 4.03, 4.05)
+    openai_api_key: str = ""
+    openai_embedding_model: str = "text-embedding-3-small"
+    embedding_cache_ttl_s: int = 300
+
+    # Upstash Redis (REST) — query-embedding cache + tool rate limits (4.05, 4.12)
+    upstash_redis_url: str = ""
+    upstash_redis_token: str = ""
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 

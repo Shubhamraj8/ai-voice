@@ -274,3 +274,37 @@ LIMIT 5;
 ```
 
 Expect the ivfflat index in the plan and p95 under 50ms at this size.
+
+## Knowledge retrieval (ticket 4.05)
+
+Migration `016` adds RLS to `knowledge_embeddings` (same `tenant_isolation` +
+`internal_full_access` pattern as `006`) and the retrieval function:
+
+```sql
+retrieve_knowledge(
+  p_tenant_id uuid,
+  p_query_embedding vector(1536),
+  p_threshold float DEFAULT 0.7,   -- min cosine similarity (1 - distance)
+  p_limit int DEFAULT 5
+) RETURNS TABLE (id, document_id, chunk_index, content, similarity)
+```
+
+It returns a tenant's top-K chunks at or above the similarity threshold, most
+similar first. The function filters by `p_tenant_id` (primary isolation) and RLS
+adds defence in depth for direct tenant-user access from the portal.
+
+The API helper `app.services.knowledge_retrieval.retrieve_for_query()` embeds the
+query with `text-embedding-3-small` (caching the embedding in Upstash Redis for 5
+minutes — `EMBEDDING_CACHE_TTL_S`) and calls this function. Redis is optional: if
+`UPSTASH_REDIS_URL`/`UPSTASH_REDIS_TOKEN` are unset the embedding is recomputed
+each call.
+
+### Manual check (run on a real Postgres)
+
+```sql
+-- Returns rows only for the given tenant, ranked by similarity:
+SELECT chunk_index, similarity
+FROM retrieve_knowledge('<tenant-uuid>',
+       (SELECT array_agg(random())::vector FROM generate_series(1, 1536)),
+       0.0, 5);
+```
