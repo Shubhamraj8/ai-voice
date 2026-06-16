@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     recording_signed_url_ttl_s: int = 3600
     twilio_recording_status_path: str = "/webhooks/twilio/recording"
 
+    # Knowledge base → Supabase Storage (ticket 4.01)
+    knowledge_bucket: str = "knowledge"
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 

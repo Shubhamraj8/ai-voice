@@ -1,9 +1,10 @@
 """
-setup_storage.py — create the private 'recordings' Storage bucket (ticket 2.14)
+setup_storage.py — create the private Storage buckets (tickets 2.14, 4.01)
 
-Idempotent: safe to run repeatedly. Creates the bucket via the Supabase
-Storage API using the service-role key. Migration 011 also registers the bucket
-+ policies in SQL; this script is the supported API path and a quick verify.
+Idempotent: safe to run repeatedly. Creates the 'recordings' and 'knowledge'
+buckets (private) via the Supabase Storage API using the service-role key.
+The migrations also register the buckets in SQL; this script is the supported
+API path and a quick verify.
 
 Usage (from the repo root, with .env populated):
     python apps/api/scripts/setup_storage.py
@@ -28,7 +29,10 @@ import httpx
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-BUCKET = os.environ.get("RECORDINGS_BUCKET", "recordings")
+BUCKETS = [
+    os.environ.get("RECORDINGS_BUCKET", "recordings"),
+    os.environ.get("KNOWLEDGE_BUCKET", "knowledge"),
+]
 
 missing = [
     k
@@ -49,26 +53,33 @@ headers = {
     "Content-Type": "application/json",
 }
 
-print(f"[info] Ensuring private bucket '{BUCKET}' exists ...")
-resp = httpx.post(
-    f"{base}/storage/v1/bucket",
-    headers=headers,
-    json={"id": BUCKET, "name": BUCKET, "public": False},
-    timeout=30.0,
-)
 
-if resp.status_code in (200, 201):
-    print(f"[ok] Bucket '{BUCKET}' created.")
-elif resp.status_code == 409 or "already exists" in resp.text.lower():
-    print(f"[ok] Bucket '{BUCKET}' already exists — nothing to do.")
-else:
-    print(f"[error] Unexpected response {resp.status_code}: {resp.text}")
-    sys.exit(1)
+def ensure_bucket(bucket: str) -> bool:
+    print(f"[info] Ensuring private bucket '{bucket}' exists ...")
+    resp = httpx.post(
+        f"{base}/storage/v1/bucket",
+        headers=headers,
+        json={"id": bucket, "name": bucket, "public": False},
+        timeout=30.0,
+    )
+    if resp.status_code in (200, 201):
+        print(f"[ok] Bucket '{bucket}' created.")
+    elif resp.status_code == 409 or "already exists" in resp.text.lower():
+        print(f"[ok] Bucket '{bucket}' already exists — nothing to do.")
+    else:
+        print(f"[error] Unexpected response {resp.status_code}: {resp.text}")
+        return False
 
-# Verify it is private.
-verify = httpx.get(f"{base}/storage/v1/bucket/{BUCKET}", headers=headers, timeout=30.0)
-if verify.status_code == 200:
-    is_public = verify.json().get("public")
-    print(f"[info] Bucket public={is_public} (expected False).")
-else:
-    print(f"[warn] Could not verify bucket: {verify.status_code}")
+    verify = httpx.get(
+        f"{base}/storage/v1/bucket/{bucket}", headers=headers, timeout=30.0
+    )
+    if verify.status_code == 200:
+        public = verify.json().get("public")
+        print(f"[info] Bucket '{bucket}' public={public} (expected False).")
+    else:
+        print(f"[warn] Could not verify bucket '{bucket}': {verify.status_code}")
+    return True
+
+
+ok = all(ensure_bucket(bucket) for bucket in BUCKETS)
+sys.exit(0 if ok else 1)
