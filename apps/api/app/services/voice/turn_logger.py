@@ -29,6 +29,8 @@ from app.services.voice.conversation_config import trim_conversation_history
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from app.services.voice.rag import RAGState
+
 logger = structlog.get_logger(__name__)
 
 # A turn slower than this end-to-end logs a warning for diagnosis (ticket 2.15).
@@ -95,6 +97,7 @@ def attach_turn_logging(
     metrics_collector: _TurnMetricsCollector,
     call_id: UUID | None = None,
     tenant_id: UUID | None = None,
+    rag_state: RAGState | None = None,
 ) -> None:
     """Wire aggregator and latency events to structured per-turn logs.
 
@@ -189,6 +192,12 @@ def attach_turn_logging(
             tts_chars=tts_chars,
         )
 
+        retrieval_meta = None
+        if rag_state is not None:
+            meta = rag_state.take()
+            if meta is not None:
+                retrieval_meta = meta.as_dict()
+
         if call_id is not None:
             await record_turn(
                 call_id=call_id,
@@ -198,6 +207,7 @@ def attach_turn_logging(
                 latency_ms=total_ms,
                 tts_chars=tts_chars,
                 latency_breakdown=latency_breakdown,
+                retrieval_meta=retrieval_meta,
             )
 
         state["user_input"] = ""

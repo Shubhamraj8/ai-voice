@@ -162,6 +162,7 @@ async def record_turn(
     latency_ms: int | None = None,
     tts_chars: int | None = None,
     latency_breakdown: dict[str, int | None] | None = None,
+    retrieval_meta: dict[str, object] | None = None,
 ) -> None:
     """Insert one ``call_messages`` row for a completed turn."""
 
@@ -172,9 +173,9 @@ async def record_turn(
                 """
                 INSERT INTO call_messages (
                     call_id, tenant_id, role, content,
-                    latency_ms, tts_chars, latency_breakdown
+                    latency_ms, tts_chars, latency_breakdown, retrieval_meta
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
                 """,
                 call_id,
                 tenant_id or DEV_TENANT_ID,
@@ -187,6 +188,7 @@ async def record_turn(
                     if latency_breakdown is not None
                     else None
                 ),
+                json.dumps(retrieval_meta) if retrieval_meta is not None else None,
             )
     except Exception as exc:
         logger.error(

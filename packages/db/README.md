@@ -320,3 +320,15 @@ FROM retrieve_knowledge('<tenant-uuid>',
        (SELECT array_agg(random())::vector FROM generate_series(1, 1536)),
        0.0, 5);
 ```
+
+## RAG injection in calls (ticket 4.06)
+
+During a live call, a `RAGInjectionProcessor` sits between the user context
+aggregator and the LLM. On each user turn it embeds the latest utterance, runs
+`retrieve_for_query`, and — when chunks clear the threshold — rewrites the LLM
+context with a single `KNOWLEDGE` system block (refreshed each turn) instructing
+the model to answer from that context or say it doesn't know and offer to
+transfer.
+
+Migration `018` adds `call_messages.retrieval_meta jsonb`, populated on each
+assistant turn with `chunks_returned`, `top_similarity`, and `retrieval_ms`.

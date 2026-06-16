@@ -44,6 +44,8 @@ from app.services.voice.conversation_config import (
     MAX_LLM_OUTPUT_TOKENS,
     build_llm_context,
 )
+from app.services.voice.rag import RAGState
+from app.services.voice.rag_processor import RAGInjectionProcessor
 from app.services.voice.turn_config import (
     DEEPGRAM_ENDPOINTING_MS,
     DEEPGRAM_STT_LANGUAGE,
@@ -316,20 +318,27 @@ def _build_conversation_pipeline(
             strategy=type(strategy).__name__,
         )
 
-    pipeline = Pipeline(
-        [
-            transport.input(),
-            vad_processor,
-            stt,
-            user_turn_processor,
-            context_aggregator.user(),
-            llm,
-            tts,
-            buffer_monitor,
-            transport.output(),
-            context_aggregator.assistant(),
-        ]
-    )
+    # RAG: inject the tenant's relevant knowledge into the context before the
+    # LLM, on each user turn (ticket 4.06). Only when we know the tenant.
+    rag_state = RAGState()
+    processors = [
+        transport.input(),
+        vad_processor,
+        stt,
+        user_turn_processor,
+        context_aggregator.user(),
+    ]
+    if tenant_id is not None:
+        processors.append(RAGInjectionProcessor(tenant_id=tenant_id, state=rag_state))
+    processors += [
+        llm,
+        tts,
+        buffer_monitor,
+        transport.output(),
+        context_aggregator.assistant(),
+    ]
+
+    pipeline = Pipeline(processors)
 
     worker = PipelineWorker(
         pipeline,
@@ -352,6 +361,7 @@ def _build_conversation_pipeline(
         metrics_collector=metrics_collector,
         call_id=call_db_id,
         tenant_id=tenant_id,
+        rag_state=rag_state,
     )
 
     return ConversationPipeline(
