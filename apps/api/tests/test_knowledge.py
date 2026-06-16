@@ -138,6 +138,8 @@ def test_upload_endpoint_creates_document(mock_db_pool, monkeypatch):
     monkeypatch.setattr("app.routes.internal_knowledge.store_document", fake_store)
     audit = AsyncMock()
     monkeypatch.setattr("app.routes.internal_knowledge.log_internal_action", audit)
+    ingest = AsyncMock()
+    monkeypatch.setattr("app.routes.internal_knowledge.process_document", ingest)
 
     app.dependency_overrides[require_internal_user] = _internal_ctx
     app.dependency_overrides[get_pool] = lambda: pool
@@ -149,5 +151,6 @@ def test_upload_endpoint_creates_document(mock_db_pool, monkeypatch):
         assert response.status_code == 201
         assert response.json()["filename"] == "menu.pdf"
         audit.assert_awaited_once()
+        ingest.assert_awaited_once_with(doc.id)
     finally:
         app.dependency_overrides.clear()

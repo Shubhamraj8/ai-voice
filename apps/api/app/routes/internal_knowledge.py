@@ -1,12 +1,13 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 
 from app.db.pool import get_pool
 from app.middleware.auth import InternalUserContext, require_internal_user
 from app.models.knowledge import KnowledgeDocument
 from app.services.audit import log_internal_action
+from app.services.ingestion import process_document
 from app.services.knowledge import compute_sha256, store_document, validate_pdf
 
 router = APIRouter(
@@ -18,6 +19,7 @@ router = APIRouter(
 async def upload_knowledge_document(
     tenant_id: UUID,
     ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     pool=Depends(get_pool),
 ) -> KnowledgeDocument:
@@ -42,4 +44,8 @@ async def upload_knowledge_document(
         target_id=document.id,
         payload={"filename": document.filename, "bytes": document.bytes},
     )
+
+    # Ingest in the background so the upload returns immediately; progress is
+    # reflected on the document's status field (ticket 4.03).
+    background_tasks.add_task(process_document, document.id)
     return document

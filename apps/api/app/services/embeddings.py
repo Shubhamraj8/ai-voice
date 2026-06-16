@@ -45,3 +45,10 @@ async def embed_text(text: str) -> list[float]:
 
     vectors = await embed_texts([text])
     return vectors[0]
+
+
+def to_vector_literal(embedding: list[float]) -> str:
+    """Format an embedding as pgvector text input: ``[0.1,0.2,...]`` (cast
+    ``::vector`` in SQL). asyncpg has no native vector codec."""
+
+    return "[" + ",".join(str(x) for x in embedding) + "]"

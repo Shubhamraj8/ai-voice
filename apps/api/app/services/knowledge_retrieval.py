@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.db.pool import get_pool
 from app.services import cache
 from app.services.embeddings import embed_text
+from app.services.embeddings import to_vector_literal as _to_vector_literal
 
 logger = structlog.get_logger(__name__)
 
@@ -37,11 +38,6 @@ def _cache_key(query: str) -> str:
     model = get_settings().openai_embedding_model
     digest = hashlib.sha1(query.strip().encode("utf-8")).hexdigest()
     return f"emb:{model}:{digest}"
-
-
-def _to_vector_literal(embedding: list[float]) -> str:
-    # pgvector text input form: "[0.1,0.2,...]" (cast to ::vector in SQL).
-    return "[" + ",".join(str(x) for x in embedding) + "]"
 
 
 async def _embed_query_cached(query: str) -> list[float]:

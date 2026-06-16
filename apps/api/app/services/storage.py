@@ -84,6 +84,28 @@ async def upload_document(
     )
 
 
+async def _download_object(*, bucket: str, path: str) -> bytes | None:
+    """Download an object's bytes from ``{bucket}/{path}``; None on failure."""
+
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    object_url = f"{base}/storage/v1/object/{bucket}/{quote(path, safe='/')}"
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.get(object_url, headers=_auth_headers())
+            response.raise_for_status()
+        return response.content
+    except Exception as exc:
+        logger.error("object_download_failed", bucket=bucket, path=path, error=str(exc))
+        return None
+
+
+async def download_document(*, path: str) -> bytes | None:
+    """Download a knowledge document from the knowledge bucket (ticket 4.03)."""
+    return await _download_object(bucket=get_settings().knowledge_bucket, path=path)
+
+
 async def create_signed_url(*, path: str, expires_in: int | None = None) -> str | None:
     """Return a time-limited signed URL for ``recordings/{path}`` playback."""
 
