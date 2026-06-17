@@ -7,6 +7,7 @@ from app.config import get_settings
 from app.services.call_routing import resolve_agent_by_number
 from app.services.calls import end_call, start_call
 from app.services.recording import process_recording, start_call_recording
+from app.services.sms import update_sms_status
 from app.services.voice import agent_registry
 from app.webhooks.twilio_logging import (
     RECORDING_LOG_FIELDS,
@@ -139,5 +140,34 @@ async def twilio_recording_webhook(
     logger.info(
         "twilio_recording_webhook",
         **log_fields(params, fields=RECORDING_LOG_FIELDS),
+    )
+    return Response(status_code=204)
+
+
+@router.post(
+    "/sms-status",
+    summary="Twilio SMS status callback",
+    description=(
+        "Validates the Twilio signature and backfills the delivery status of a "
+        "sent SMS onto its sms_log row (ticket 4.09)."
+    ),
+    status_code=204,
+)
+async def twilio_sms_status_webhook(request: Request) -> Response:
+    form = await request.form()
+    params = {key: str(value) for key, value in form.multi_items()}
+    validate_twilio_request(request, params)
+
+    message_sid = params.get("MessageSid") or params.get("SmsSid") or ""
+    message_status = params.get("MessageStatus") or params.get("SmsStatus") or ""
+    error_code = params.get("ErrorCode") or None
+    if message_sid and message_status:
+        await update_sms_status(message_sid, message_status, error=error_code)
+
+    logger.info(
+        "twilio_sms_status_webhook",
+        message_sid=message_sid,
+        message_status=message_status,
+        error_code=error_code,
     )
     return Response(status_code=204)
