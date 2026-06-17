@@ -1,0 +1,5 @@
+ALTER TABLE calls DROP COLUMN IF EXISTS cost_total_usd;
+ALTER TABLE calls DROP COLUMN IF EXISTS cost_telephony_usd;
+ALTER TABLE calls DROP COLUMN IF EXISTS cost_llm_usd;
+ALTER TABLE calls DROP COLUMN IF EXISTS cost_tts_usd;
+ALTER TABLE calls DROP COLUMN IF EXISTS cost_stt_usd;

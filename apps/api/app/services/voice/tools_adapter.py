@@ -45,7 +45,9 @@ def build_tools_schema(tools: list[Tool]) -> ToolsSchema | None:
 def _make_handler(tool: Tool, ctx: ToolContext):
     async def handler(params) -> None:
         raw_args = dict(params.arguments or {})
-        result = await run_tool(tool, ctx, raw_args)
+        result = await run_tool(
+            tool, ctx, raw_args, idempotency_key=params.tool_call_id
+        )
 
         if ctx.call_id is not None:
             await record_turn(

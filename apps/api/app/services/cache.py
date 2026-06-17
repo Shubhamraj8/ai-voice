@@ -68,3 +68,17 @@ async def set_json(key: str, value: Any, *, ttl_s: int) -> None:
     """Store ``value`` (JSON-encoded) at ``key`` with an expiry. Best-effort."""
 
     await _command("SET", key, json.dumps(value), "EX", ttl_s)
+
+
+async def incr_with_ttl(key: str, *, ttl_s: int) -> int | None:
+    """Increment ``key`` and (re)set its expiry; return the new count, or None
+    when caching is disabled/unavailable (so callers can skip enforcement)."""
+
+    value = await _command("INCR", key)
+    if value is None:
+        return None
+    await _command("EXPIRE", key, ttl_s)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

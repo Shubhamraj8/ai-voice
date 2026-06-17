@@ -6,8 +6,10 @@ from fastapi import APIRouter, BackgroundTasks, Request, Response
 from app.config import get_settings
 from app.services.call_routing import resolve_agent_by_number
 from app.services.calls import end_call, start_call
+from app.services.cost_calculator import compute_and_store_cost
 from app.services.recording import process_recording, start_call_recording
 from app.services.sms import update_sms_status
+from app.services.summary import generate_call_summary
 from app.services.voice import agent_registry
 from app.webhooks.twilio_logging import (
     RECORDING_LOG_FIELDS,
@@ -92,7 +94,9 @@ async def twilio_voice_webhook(
     description="Validates the Twilio signature and logs call lifecycle events.",
     status_code=204,
 )
-async def twilio_status_webhook(request: Request) -> Response:
+async def twilio_status_webhook(
+    request: Request, background_tasks: BackgroundTasks
+) -> Response:
     form = await request.form()
     params = {key: str(value) for key, value in form.multi_items()}
     validate_twilio_request(request, params)
@@ -101,12 +105,16 @@ async def twilio_status_webhook(request: Request) -> Response:
         call_sid = params.get("CallSid", "")
         raw_duration = params.get("CallDuration", "")
         if call_sid:
-            await end_call(
+            call_db_id = await end_call(
                 twilio_call_sid=call_sid,
                 duration_secs=int(raw_duration) if raw_duration.isdigit() else None,
             )
             # Force agent cleanup in case the websocket lingers (ticket 2.18).
             await agent_registry.terminate(call_sid)
+            # Post-call jobs out-of-band: summary (4.13) + cost (4.14).
+            if call_db_id is not None:
+                background_tasks.add_task(generate_call_summary, call_db_id)
+                background_tasks.add_task(compute_and_store_cost, call_db_id)
 
     logger.info(
         "twilio_status_webhook",

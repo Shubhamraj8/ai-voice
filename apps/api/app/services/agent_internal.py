@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from app.errors import api_error
 from app.models.agent import Agent, AgentCreate, AgentPatch
 from app.providers.deepgram_tts import VOICE_CATALOGUE
+from app.tools.registry import registry
 
 
 def validate_voice_id(voice_id: str) -> None:
@@ -24,6 +25,24 @@ def validate_voice_id(voice_id: str) -> None:
                 "code": "invalid_voice_id",
                 "message": f"Unknown voice_id '{voice_id}'.",
                 "allowed": VOICE_CATALOGUE,
+            },
+        )
+
+
+def validate_tools(tools: list[str] | None) -> None:
+    """Reject tool names that aren't in the registry (catches typos at save
+    time). Empty/None is allowed (agent simply has no tools)."""
+
+    if not tools:
+        return
+    unknown = [name for name in tools if registry.get(name) is None]
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "invalid_tools",
+                "message": f"Unknown tool(s): {', '.join(unknown)}",
+                "allowed": registry.names(),
             },
         )
 
@@ -57,6 +76,7 @@ async def list_agents(conn, tenant_id: UUID) -> list[Agent]:
 
 async def create_agent(conn, tenant_id: UUID, body: AgentCreate) -> Agent:
     validate_voice_id(body.voice_id)
+    validate_tools(body.tools)
 
     existing = await conn.fetchrow(
         "SELECT id FROM agents WHERE phone_number = $1", body.phone_number
@@ -97,6 +117,8 @@ async def patch_agent(conn, tenant_id: UUID, agent_id: UUID, body: AgentPatch) -
 
     if updates.get("voice_id") is not None:
         validate_voice_id(updates["voice_id"])
+    if updates.get("tools") is not None:
+        validate_tools(updates["tools"])
 
     set_parts: list[str] = []
     params: list = []
