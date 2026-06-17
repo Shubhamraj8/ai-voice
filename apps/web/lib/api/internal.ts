@@ -287,3 +287,97 @@ export async function fetchAuditLog(
   const qs = query.toString();
   return internalFetch(`/internal/audit${qs ? `?${qs}` : ""}`, accessToken);
 }
+
+// --- Knowledge base (tickets 4.01–4.03, 4.15) --------------------------------
+
+export type KnowledgeStatus = "pending" | "processing" | "ready" | "error";
+
+export type KnowledgeDocument = {
+  id: string;
+  tenant_id: string;
+  agent_id: string | null;
+  filename: string;
+  bytes: number;
+  status: KnowledgeStatus;
+  error: string | null;
+  chunk_count: number | null;
+  uploaded_at: string;
+  processed_at: string | null;
+};
+
+export type KnowledgeDocumentDetail = KnowledgeDocument & {
+  chunks_total: number | null;
+  chunks_done: number;
+};
+
+export type KnowledgeChunk = {
+  chunk_index: number;
+  content: string;
+  token_count: number | null;
+};
+
+export async function fetchKnowledgeDocuments(
+  accessToken: string,
+  tenantId: string
+): Promise<KnowledgeDocument[]> {
+  return internalFetch(`/internal/tenants/${tenantId}/knowledge`, accessToken);
+}
+
+export async function fetchKnowledgeChunks(
+  accessToken: string,
+  tenantId: string,
+  documentId: string,
+  limit = 3
+): Promise<KnowledgeChunk[]> {
+  return internalFetch(
+    `/internal/tenants/${tenantId}/knowledge/${documentId}/chunks?limit=${limit}`,
+    accessToken
+  );
+}
+
+export async function uploadKnowledgeDocument(
+  accessToken: string,
+  tenantId: string,
+  file: File
+): Promise<KnowledgeDocument> {
+  const form = new FormData();
+  form.append("file", file);
+  // No Content-Type header — the browser sets the multipart boundary.
+  const response = await fetch(`${getApiBaseUrl()}/internal/tenants/${tenantId}/knowledge`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: form,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const message =
+      typeof body?.detail?.message === "string"
+        ? body.detail.message
+        : `Upload failed (${response.status})`;
+    throw new Error(message);
+  }
+  return (await response.json()) as KnowledgeDocument;
+}
+
+export async function reprocessKnowledgeDocument(
+  accessToken: string,
+  tenantId: string,
+  documentId: string
+): Promise<void> {
+  await internalFetch(
+    `/internal/tenants/${tenantId}/knowledge/${documentId}/reprocess`,
+    accessToken,
+    { method: "POST" }
+  );
+}
+
+export async function deleteKnowledgeDocument(
+  accessToken: string,
+  tenantId: string,
+  documentId: string
+): Promise<void> {
+  await internalFetch(`/internal/tenants/${tenantId}/knowledge/${documentId}`, accessToken, {
+    method: "DELETE",
+  });
+}

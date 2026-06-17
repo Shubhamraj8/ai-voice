@@ -16,6 +16,7 @@ class KnowledgeDocument(BaseModel):
     sha256: str
     status: str
     error: str | None = None
+    chunk_count: int | None = None
     uploaded_at: datetime
     processed_at: datetime | None = None
 
@@ -25,3 +26,11 @@ class KnowledgeDocumentDetail(KnowledgeDocument):
 
     chunks_total: int | None = None  # known once chunking completes
     chunks_done: int = 0  # embeddings written so far
+
+
+class KnowledgeChunk(BaseModel):
+    """A sample chunk for the dashboard detail drawer (ticket 4.15)."""
+
+    chunk_index: int
+    content: str
+    token_count: int | None = None

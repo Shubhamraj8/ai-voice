@@ -151,6 +151,32 @@ async def get_document_detail(
     )
 
 
+async def list_document_chunks(
+    conn, *, tenant_id: UUID, document_id: UUID, limit: int = 3
+) -> list[dict]:
+    """First ``limit`` chunks of a document (for the detail drawer). 404 if the
+    document isn't this tenant's."""
+
+    doc = await conn.fetchrow(
+        "SELECT id FROM knowledge_documents "
+        "WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL",
+        document_id,
+        tenant_id,
+    )
+    if doc is None:
+        raise api_error(404, "document_not_found", "Knowledge document not found")
+
+    rows = await conn.fetch(
+        "SELECT chunk_index, content, token_count FROM knowledge_embeddings "
+        "WHERE document_id = $1 AND tenant_id = $2 "
+        "ORDER BY chunk_index LIMIT $3",
+        document_id,
+        tenant_id,
+        limit,
+    )
+    return [dict(row) for row in rows]
+
+
 async def mark_for_reprocess(conn, *, tenant_id: UUID, document_id: UUID) -> None:
     """Flip a document back to ``pending`` so ingestion can be re-run."""
 

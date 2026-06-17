@@ -5,12 +5,17 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 
 from app.db.pool import get_pool
 from app.middleware.auth import InternalUserContext, require_internal_user
-from app.models.knowledge import KnowledgeDocument, KnowledgeDocumentDetail
+from app.models.knowledge import (
+    KnowledgeChunk,
+    KnowledgeDocument,
+    KnowledgeDocumentDetail,
+)
 from app.services.audit import log_internal_action
 from app.services.ingestion import process_document
 from app.services.knowledge import (
     compute_sha256,
     get_document_detail,
+    list_document_chunks,
     list_documents,
     mark_for_reprocess,
     soft_delete_document,
@@ -85,6 +90,20 @@ async def get_knowledge_document(
     async with pool.acquire() as conn:
         return await get_document_detail(
             conn, tenant_id=tenant_id, document_id=document_id
+        )
+
+
+@router.get("/{document_id}/chunks", response_model=list[KnowledgeChunk])
+async def get_knowledge_document_chunks(
+    tenant_id: UUID,
+    document_id: UUID,
+    ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+    limit: int = 3,
+    pool=Depends(get_pool),
+) -> list[KnowledgeChunk]:
+    async with pool.acquire() as conn:
+        return await list_document_chunks(
+            conn, tenant_id=tenant_id, document_id=document_id, limit=min(limit, 20)
         )
 
 

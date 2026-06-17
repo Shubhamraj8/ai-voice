@@ -7,6 +7,7 @@ import { ArrowLeft, PauseCircle, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchTenantDetail, patchTenant, type TenantDetail } from "@/lib/api/internal";
 import { AgentEditForm } from "@/components/internal-dashboard/agent-edit-form";
+import { KnowledgeTab } from "@/components/internal-dashboard/knowledge-tab";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -321,11 +322,11 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
         </section>
       ) : null}
 
-      {activeTab === "knowledge" || activeTab === "billing" ? (
+      {activeTab === "knowledge" ? <KnowledgeTab tenantId={tenantId} /> : null}
+
+      {activeTab === "billing" ? (
         <section className="rounded-xl border border-dashed border-zerqo-line bg-white p-8 text-center text-sm text-muted-foreground">
-          {activeTab === "knowledge"
-            ? "Knowledge base management arrives in Phase 4."
-            : "Billing details arrive in Phase 5."}
+          Billing details arrive in Phase 5.
         </section>
       ) : null}
 
