@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     upstash_redis_url: str = ""
     upstash_redis_token: str = ""
 
+    # Escalation — Resend email + owner notify + portal link (ticket 4.10)
+    resend_api_key: str = ""
+    escalation_from_email: str = ""
+    public_app_base_url: str = "http://localhost:3000"
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 
