@@ -44,6 +44,9 @@ from app.services.voice.conversation_config import (
     MAX_LLM_OUTPUT_TOKENS,
     build_llm_context,
 )
+from app.services.voice.rag import RAGState
+from app.services.voice.rag_processor import RAGInjectionProcessor
+from app.services.voice.tools_adapter import build_tools_schema, register_tools
 from app.services.voice.turn_config import (
     DEEPGRAM_ENDPOINTING_MS,
     DEEPGRAM_STT_LANGUAGE,
@@ -55,6 +58,8 @@ from app.services.voice.turn_logger import (
     attach_turn_logging,
     build_turn_metrics_collector,
 )
+from app.tools.base import ToolContext
+from app.tools.registry import registry as tool_registry
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -247,8 +252,11 @@ def _build_conversation_pipeline(
     *,
     call_db_id: UUID | None = None,
     tenant_id: UUID | None = None,
+    agent_id: UUID | None = None,
+    twilio_call_sid: str | None = None,
     voice_id: str | None = None,
     system_prompt: str | None = None,
+    tool_whitelist: list[str] | None = None,
 ) -> ConversationPipeline:
     """Wire Deepgram STT → DeepSeek LLM → Deepgram TTS with turn detection (2.12).
 
@@ -278,6 +286,22 @@ def _build_conversation_pipeline(
     )
 
     context = build_llm_context(system_prompt)
+
+    # Expose the agent's whitelisted (and registered) tools to the LLM (4.07).
+    # Until concrete tools register (4.08+) this resolves to nothing.
+    tools = tool_registry.tools_for(tool_whitelist)
+    if tools:
+        context.set_tools(build_tools_schema(tools))
+        register_tools(
+            llm,
+            tools,
+            ToolContext(
+                tenant_id=tenant_id,
+                agent_id=agent_id,
+                call_id=call_db_id,
+                twilio_call_sid=twilio_call_sid,
+            ),
+        )
 
     context_aggregator = LLMContextAggregatorPair(
         context,
@@ -316,20 +340,27 @@ def _build_conversation_pipeline(
             strategy=type(strategy).__name__,
         )
 
-    pipeline = Pipeline(
-        [
-            transport.input(),
-            vad_processor,
-            stt,
-            user_turn_processor,
-            context_aggregator.user(),
-            llm,
-            tts,
-            buffer_monitor,
-            transport.output(),
-            context_aggregator.assistant(),
-        ]
-    )
+    # RAG: inject the tenant's relevant knowledge into the context before the
+    # LLM, on each user turn (ticket 4.06). Only when we know the tenant.
+    rag_state = RAGState()
+    processors = [
+        transport.input(),
+        vad_processor,
+        stt,
+        user_turn_processor,
+        context_aggregator.user(),
+    ]
+    if tenant_id is not None:
+        processors.append(RAGInjectionProcessor(tenant_id=tenant_id, state=rag_state))
+    processors += [
+        llm,
+        tts,
+        buffer_monitor,
+        transport.output(),
+        context_aggregator.assistant(),
+    ]
+
+    pipeline = Pipeline(processors)
 
     worker = PipelineWorker(
         pipeline,
@@ -352,6 +383,7 @@ def _build_conversation_pipeline(
         metrics_collector=metrics_collector,
         call_id=call_db_id,
         tenant_id=tenant_id,
+        rag_state=rag_state,
     )
 
     return ConversationPipeline(
@@ -440,8 +472,11 @@ async def run_minimal_twilio_pipeline(
             settings,
             call_db_id=ctx["call_id"] if ctx else None,
             tenant_id=ctx["tenant_id"] if ctx else None,
+            agent_id=ctx["agent_id"] if ctx else None,
+            twilio_call_sid=call_id,
             voice_id=ctx["voice_id"] if ctx else None,
             system_prompt=ctx["system_prompt"] if ctx else None,
+            tool_whitelist=list(ctx["tools"]) if ctx else None,
         )
 
         worker = conversation.worker

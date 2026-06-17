@@ -38,6 +38,23 @@ class Settings(BaseSettings):
     recording_signed_url_ttl_s: int = 3600
     twilio_recording_status_path: str = "/webhooks/twilio/recording"
 
+    # Knowledge base → Supabase Storage (ticket 4.01)
+    knowledge_bucket: str = "knowledge"
+
+    # Embeddings + retrieval (tickets 4.03, 4.05)
+    openai_api_key: str = ""
+    openai_embedding_model: str = "text-embedding-3-small"
+    embedding_cache_ttl_s: int = 300
+
+    # Upstash Redis (REST) — query-embedding cache + tool rate limits (4.05, 4.12)
+    upstash_redis_url: str = ""
+    upstash_redis_token: str = ""
+
+    # Escalation — Resend email + owner notify + portal link (ticket 4.10)
+    resend_api_key: str = ""
+    escalation_from_email: str = ""
+    public_app_base_url: str = "http://localhost:3000"
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 
