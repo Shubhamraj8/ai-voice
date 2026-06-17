@@ -39,6 +39,7 @@ class SendSms(Tool):
         "address, or booking confirmation."
     )
     parameters_schema = SmsArgs
+    max_per_call = 3
 
     async def execute(self, ctx: ToolContext, args: SmsArgs) -> dict:
         from_number = await get_agent_from_number(ctx.agent_id)

@@ -49,6 +49,7 @@ class TransferToHuman(Tool):
         "asks to speak to a person or when you cannot help them."
     )
     parameters_schema = TransferArgs
+    max_per_call = 1
 
     async def execute(self, ctx: ToolContext, args: TransferArgs) -> dict:
         if not ctx.twilio_call_sid:

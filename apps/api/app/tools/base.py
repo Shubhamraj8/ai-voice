@@ -36,6 +36,9 @@ class Tool(ABC):
     name: str
     description: str
     parameters_schema: type[BaseModel]
+    # Max successful invocations per call (None = unlimited). Enforced via Redis
+    # in the dispatcher (ticket 4.12).
+    max_per_call: int | None = None
 
     @abstractmethod
     async def execute(self, ctx: ToolContext, args: BaseModel) -> dict[str, Any]:

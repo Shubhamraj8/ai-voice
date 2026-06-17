@@ -61,6 +61,7 @@ class EscalateToOwner(Tool):
         "anything you cannot resolve."
     )
     parameters_schema = EscalateArgs
+    max_per_call = 2
 
     async def execute(self, ctx: ToolContext, args: EscalateArgs) -> dict:
         config = await get_escalation_config(ctx.tenant_id) or {}
