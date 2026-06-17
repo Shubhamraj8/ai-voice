@@ -7,6 +7,7 @@ can apologise and recover rather than the call breaking.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import structlog
@@ -42,4 +43,12 @@ async def run_tool(
         logger.warning("tool_execution_failed", tool=tool.name, error=str(exc))
         return {"error": str(exc)}
 
-    return result if isinstance(result, dict) else {"result": result}
+    final = result if isinstance(result, dict) else {"result": result}
+    # Log arg *keys* (not values — may be sensitive) + result size.
+    logger.info(
+        "tool_dispatched",
+        tool=tool.name,
+        arg_keys=sorted(args.model_dump().keys()),
+        result_bytes=len(json.dumps(final, default=str)),
+    )
+    return final
