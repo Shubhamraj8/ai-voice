@@ -131,8 +131,10 @@ async def get_call_pipeline_context(twilio_call_sid: str):
                 SELECT
                   c.id AS call_id,
                   c.tenant_id,
+                  a.id AS agent_id,
                   a.voice_id,
                   a.system_prompt,
+                  a.tools,
                   t.language,
                   t.provider_config->>'stt' AS stt,
                   t.provider_config->>'tts' AS tts,
