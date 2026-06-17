@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Request, Response
 from app.config import get_settings
 from app.services.call_routing import resolve_agent_by_number
 from app.services.calls import end_call, start_call
+from app.services.cost_calculator import compute_and_store_cost
 from app.services.recording import process_recording, start_call_recording
 from app.services.sms import update_sms_status
 from app.services.summary import generate_call_summary
@@ -110,9 +111,10 @@ async def twilio_status_webhook(
             )
             # Force agent cleanup in case the websocket lingers (ticket 2.18).
             await agent_registry.terminate(call_sid)
-            # Generate the post-call summary out-of-band (ticket 4.13).
+            # Post-call jobs out-of-band: summary (4.13) + cost (4.14).
             if call_db_id is not None:
                 background_tasks.add_task(generate_call_summary, call_db_id)
+                background_tasks.add_task(compute_and_store_cost, call_db_id)
 
     logger.info(
         "twilio_status_webhook",
