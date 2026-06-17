@@ -22,9 +22,10 @@ class ToolContext:
 
     tenant_id: UUID | None = None
     agent_id: UUID | None = None
-    call_id: UUID | None = None
+    call_id: UUID | None = None  # DB calls.id
+    twilio_call_sid: str | None = None  # live Twilio CallSid (call control)
     # Shared, session-scoped resources (db handles, clients, state). Reserved
-    # for tools that need them (4.08+); None during the framework phase.
+    # for tools that need them; None unless the pipeline supplies it.
     resources: Any = None
 
 

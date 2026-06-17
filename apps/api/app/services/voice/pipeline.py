@@ -253,6 +253,7 @@ def _build_conversation_pipeline(
     call_db_id: UUID | None = None,
     tenant_id: UUID | None = None,
     agent_id: UUID | None = None,
+    twilio_call_sid: str | None = None,
     voice_id: str | None = None,
     system_prompt: str | None = None,
     tool_whitelist: list[str] | None = None,
@@ -294,7 +295,12 @@ def _build_conversation_pipeline(
         register_tools(
             llm,
             tools,
-            ToolContext(tenant_id=tenant_id, agent_id=agent_id, call_id=call_db_id),
+            ToolContext(
+                tenant_id=tenant_id,
+                agent_id=agent_id,
+                call_id=call_db_id,
+                twilio_call_sid=twilio_call_sid,
+            ),
         )
 
     context_aggregator = LLMContextAggregatorPair(
@@ -467,6 +473,7 @@ async def run_minimal_twilio_pipeline(
             call_db_id=ctx["call_id"] if ctx else None,
             tenant_id=ctx["tenant_id"] if ctx else None,
             agent_id=ctx["agent_id"] if ctx else None,
+            twilio_call_sid=call_id,
             voice_id=ctx["voice_id"] if ctx else None,
             system_prompt=ctx["system_prompt"] if ctx else None,
             tool_whitelist=list(ctx["tools"]) if ctx else None,

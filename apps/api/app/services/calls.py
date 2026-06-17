@@ -165,6 +165,9 @@ async def record_turn(
     tts_chars: int | None = None,
     latency_breakdown: dict[str, int | None] | None = None,
     retrieval_meta: dict[str, object] | None = None,
+    tool_name: str | None = None,
+    tool_args: dict[str, object] | None = None,
+    tool_result: dict[str, object] | None = None,
 ) -> None:
     """Insert one ``call_messages`` row for a completed turn."""
 
@@ -175,9 +178,11 @@ async def record_turn(
                 """
                 INSERT INTO call_messages (
                     call_id, tenant_id, role, content,
-                    latency_ms, tts_chars, latency_breakdown, retrieval_meta
+                    latency_ms, tts_chars, latency_breakdown, retrieval_meta,
+                    tool_name, tool_args, tool_result
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb,
+                        $9, $10::jsonb, $11::jsonb)
                 """,
                 call_id,
                 tenant_id or DEV_TENANT_ID,
@@ -191,6 +196,9 @@ async def record_turn(
                     else None
                 ),
                 json.dumps(retrieval_meta) if retrieval_meta is not None else None,
+                tool_name,
+                json.dumps(tool_args) if tool_args is not None else None,
+                json.dumps(tool_result) if tool_result is not None else None,
             )
     except Exception as exc:
         logger.error(
@@ -199,6 +207,19 @@ async def record_turn(
             call_id=str(call_id),
             role=role,
         )
+
+
+async def set_call_outcome(call_id: UUID, outcome: str) -> None:
+    """Set ``calls.outcome`` (e.g. 'transferred'). Best-effort."""
+
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE calls SET outcome = $2 WHERE id = $1", call_id, outcome
+            )
+    except Exception as exc:
+        logger.error("call_outcome_update_failed", error=str(exc), call_id=str(call_id))
 
 
 async def end_call(

@@ -52,9 +52,10 @@ def _make_handler(tool: Tool, ctx: ToolContext):
                 call_id=ctx.call_id,
                 tenant_id=ctx.tenant_id,
                 role="tool",
-                content=json.dumps(
-                    {"tool": tool.name, "args": raw_args, "result": result}
-                ),
+                content=json.dumps(result),
+                tool_name=tool.name,
+                tool_args=raw_args,
+                tool_result=result,
             )
 
         await params.result_callback(result)
