@@ -170,6 +170,18 @@ export async function patchTenant(
   });
 }
 
+export async function inviteTenantLogin(
+  accessToken: string,
+  tenantId: string,
+  email: string,
+  role: "owner" | "admin" | "member" = "owner"
+): Promise<{ user_id: string; email: string }> {
+  return internalFetch(`/internal/tenants/${tenantId}/invite`, accessToken, {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+  });
+}
+
 export type AvailableNumber = {
   phone_number: string;
   friendly_name: string | null;

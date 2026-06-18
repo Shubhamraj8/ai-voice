@@ -5,7 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, PauseCircle, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { fetchTenantDetail, patchTenant, type TenantDetail } from "@/lib/api/internal";
+import {
+  fetchTenantDetail,
+  inviteTenantLogin,
+  patchTenant,
+  type TenantDetail,
+} from "@/lib/api/internal";
 import { AgentEditForm } from "@/components/internal-dashboard/agent-edit-form";
 import { KnowledgeTab } from "@/components/internal-dashboard/knowledge-tab";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -46,6 +51,9 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
   const [saving, setSaving] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
   const [accessDraft, setAccessDraft] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
   const [providerDraft, setProviderDraft] = useState({
     stt: "",
     tts: "",
@@ -137,6 +145,29 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
       setError(err instanceof Error ? err.message : "Failed to update access window");
     } finally {
       setSavingAccess(false);
+    }
+  }
+
+  async function sendInvite() {
+    if (!inviteEmail) return;
+    setInviting(true);
+    setError(null);
+    setInviteMsg(null);
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await inviteTenantLogin(session.access_token, tenantId, inviteEmail);
+      setInviteMsg(`Invite sent to ${inviteEmail}`);
+      setInviteEmail("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send invite");
+    } finally {
+      setInviting(false);
     }
   }
 
@@ -292,6 +323,32 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
               onClick={() => void saveAccessWindow()}
             >
               {savingAccess ? "Saving…" : "Update access"}
+            </Button>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5">
+            <h2 className="font-medium">Client login</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Invite the client to the portal — they get an email to set their password.
+            </p>
+            <div className="mt-4 space-y-1">
+              <Label htmlFor="invite_email">Email</Label>
+              <Input
+                id="invite_email"
+                type="email"
+                placeholder="owner@business.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+            {inviteMsg ? <p className="mt-2 text-sm text-emerald-700">{inviteMsg}</p> : null}
+            <Button
+              className="mt-4 bg-[#f04e00] hover:bg-[#d94400]"
+              size="sm"
+              disabled={inviting || !inviteEmail}
+              onClick={() => void sendInvite()}
+            >
+              {inviting ? "Sending…" : "Send invite"}
             </Button>
           </section>
 

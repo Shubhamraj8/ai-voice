@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -144,3 +145,13 @@ class InternalTenantPatch(BaseModel):
     contact_phone: str | None = None
     paid_until: datetime | None = None
     provider_config: ProviderConfig | None = None
+
+
+class TenantInviteRequest(BaseModel):
+    """Invite a client portal login to an existing tenant (ticket 5.04)."""
+
+    email: str = Field(
+        min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    )
+    role: Literal["owner", "admin", "member"] = "owner"
+    lead_id: UUID | None = None
