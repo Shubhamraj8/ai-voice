@@ -7,6 +7,7 @@ from app.routes import (
     internal_knowledge,
     internal_tenants,
     me,
+    pricing,
     twilio_media,
     twilio_webhooks,
 )
@@ -14,6 +15,7 @@ from app.routes import (
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(me.router)
+api_router.include_router(pricing.router)
 api_router.include_router(internal.router)
 api_router.include_router(internal_tenants.router)
 api_router.include_router(internal_agents.router)

@@ -1914,11 +1914,12 @@ Onboarding-readiness week. Tenants can see their own data in the read-only porta
 
 **Tasks**:
 
-- Migration for `pricing_plans`: `id`, `key` (`starter` | `pro`), `name`, `price_inr_month`, `included_minutes`, `overage_inr_per_min`, `active`, `created_at`
-- Seed:
-  - Starter: ₹2,999/month, 300 min/month, ₹15/min overage
-  - Pro: ₹7,999/month, 1000 min/month, ₹12/min overage
-- Read API for the marketing pricing page + internal onboarding use
+- Migration for `pricing_plans`: `id`, `key` (`starter` | `growth` | `pro`), `name`, `price_inr_month`, `included_minutes`, `overage_inr_per_min`, `active`, `sort_order`, `created_at`
+- Seed (matches the live landing page):
+  - Starter: ₹2,999/month, 300 min/month, ₹15/min overage, 1 number
+  - Growth: ₹6,999/month, 800 min/month, ₹13/min overage, 1 number
+  - Pro: ₹16,999/month, 2,000 min/month, ₹12/min overage, 2 numbers
+- Read API (`GET /pricing-plans`, public) for the marketing pricing page + internal onboarding use
 - GST (18%) noted for manual invoices — no automated tax
 
 **Acceptance criteria**:
