@@ -180,7 +180,7 @@ function Nav() {
                 cursor: "pointer",
               }}
             >
-              Start Free Trial
+              Get started
             </M.button>
           </div>
         ) : (
@@ -277,7 +277,7 @@ function Nav() {
                   cursor: "pointer",
                 }}
               >
-                Start Free Trial
+                Get started
               </button>
             </div>
           </M.div>
@@ -662,7 +662,7 @@ function Hero() {
     mixBlendMode: "multiply",
   };
 
-  const trust = ["7-day free trial", "No credit card", "Setup in 30 minutes"];
+  const trust = ["No setup fee", "Cancel anytime", "Setup in 30 minutes"];
 
   return (
     <section
@@ -860,7 +860,7 @@ function Hero() {
                   maxWidth: 360,
                 }}
               >
-                Start Free Trial — ₹0 for 7 days
+                Get started
               </M.button>
               <M.button
                 whileHover={{ y: 0 }}

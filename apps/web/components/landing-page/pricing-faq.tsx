@@ -39,7 +39,7 @@ const PLANS = [
       ["Prompt editing portal", false],
       ["Multiple phone numbers", false],
     ],
-    cta: "Start 7-day free trial",
+    cta: "Get started",
     featured: false,
   },
   {
@@ -61,7 +61,7 @@ const PLANS = [
       ["24h priority email support", true],
       ["SMS + WhatsApp notifications (v1.5)", true],
     ],
-    cta: "Get started free",
+    cta: "Get started",
     featured: true,
   },
   {
@@ -289,10 +289,10 @@ function Pricing() {
         >
           <Eyebrow text="Pricing" />
           <Heading2 style={{ textAlign: "center" }}>
-            Start free. Scale without <span className="hl">surprises</span>.
+            Simple pricing. Scale without <span className="hl">surprises</span>.
           </Heading2>
           <p style={{ fontSize: 18, lineHeight: 1.72, color: "#6B6560", marginTop: 20 }}>
-            Every plan includes a 7-day free trial. No credit card. No setup fees. Cancel anytime.
+            No setup fees. Cancel anytime. Pay monthly, or save with annual billing.
           </p>
         </div>
 
@@ -378,8 +378,7 @@ function Pricing() {
         </Stagger>
 
         <p style={{ fontSize: 13, color: "#A09890", textAlign: "center", marginTop: 28 }}>
-          All plans include a 7-day free trial with full features. No credit card required. Cancel
-          anytime from your dashboard.
+          All plans include full features. No setup fees. Cancel anytime from your dashboard.
         </p>
         <div
           style={{
@@ -629,7 +628,7 @@ const FAQS = [
   },
   {
     q: "Is there a setup fee or contract?",
-    a: "No setup fee and no long-term contract. You pay monthly and can cancel anytime from your dashboard. Every plan starts with a 7-day free trial — no credit card required to start.",
+    a: "No setup fee and no long-term contract. You pay monthly and can cancel anytime from your dashboard.",
   },
   {
     q: "What happens to call recordings and transcripts?",

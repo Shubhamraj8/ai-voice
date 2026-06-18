@@ -10,7 +10,7 @@ export const landingPageMetadata: Metadata = {
   openGraph: {
     title: "AI Voice Agent by ZERQO — Every call answered",
     description:
-      "AI phone agents for clinics, restaurants, hotels, and more. Zero missed calls. Start your 7-day free trial.",
+      "AI phone agents for clinics, restaurants, hotels, and more. Zero missed calls. Book a demo today.",
     url: siteUrl,
     siteName: "AI Voice Agent by ZERQO",
     type: "website",

@@ -152,7 +152,7 @@ function CTABanner() {
                 boxShadow: "0 14px 34px -10px rgba(240,78,0,0.6)",
               }}
             >
-              Start free trial — no credit card
+              Get started
             </M5.button>
             <button
               style={{
