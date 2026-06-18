@@ -27,6 +27,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Set up monorepo structure with apps/web (Next.js) and apps/api (FastAPI), shared packages folder, and base tooling.
 
 **Tasks**:
+
 - Create monorepo with `pnpm` workspaces
 - Initialize `/apps/web` with Next.js 14 (App Router, TypeScript)
 - Initialize `/apps/api` with FastAPI + Python 3.11 + uv or pip
@@ -35,6 +36,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Set up `pnpm dev` to run both apps in parallel
 
 **Acceptance criteria**:
+
 - `pnpm install` works from root with no errors
 - `pnpm dev` boots Next.js on `:3000` and FastAPI on `:8000` simultaneously
 - Both apps return hello-world on their root paths
@@ -52,6 +54,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Configure linting, formatting, type-checking, and GitHub Actions for both apps.
 
 **Tasks**:
+
 - Configure ESLint + Prettier for `apps/web`
 - Configure Ruff + Black for `apps/api`
 - Add `tsc --noEmit` typecheck script
@@ -60,6 +63,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Add status badges to `README.md`
 
 **Acceptance criteria**:
+
 - Lint passes on a fresh clone
 - Typecheck passes on a fresh clone
 - Pre-commit hook blocks bad commits locally
@@ -77,6 +81,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Provision Supabase project in ap-south-1 and create migrations for core tables.
 
 **Tasks**:
+
 - Create Supabase project in `ap-south-1` region
 - Enable pgvector and uuid-ossp extensions
 - Write migration for `tenants` table
@@ -85,6 +90,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Write migration for `calls` and `call_messages` tables
 
 **Acceptance criteria**:
+
 - All migrations apply cleanly to a fresh DB
 - pgvector extension is active
 - Foreign keys and indexes match `design.md` §7
@@ -102,6 +108,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Add Row Level Security policies to every tenant-scoped table with separate paths for tenant users and internal users.
 
 **Tasks**:
+
 - Enable RLS on `tenants`, `agents`, `calls`, `call_messages`, `audit_log`
 - Write tenant-user isolation policy for each table
 - Write internal-user full-access policy for each table
@@ -109,6 +116,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Document policy patterns in `/packages/db/README.md`
 
 **Acceptance criteria**:
+
 - All tenant-scoped tables have RLS enabled
 - Tenant user can read only their own rows in every table
 - Internal user can read all rows in every table
@@ -126,6 +134,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Write a SQL or Python test that verifies tenant A cannot read tenant B's data under any code path.
 
 **Tasks**:
+
 - Seed two tenants with one user each in test data
 - Insert sample agents and calls for both
 - Authenticate as tenant A's user and query all tenant-scoped tables
@@ -134,6 +143,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Add this test to CI
 
 **Acceptance criteria**:
+
 - Test passes on first run
 - Test fails if RLS is disabled on any table
 - Test runs in under 10 seconds
@@ -151,6 +161,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Integrate Supabase Auth into the Next.js app with email/password sign-up and sign-in.
 
 **Tasks**:
+
 - Install `@supabase/ssr` and `@supabase/supabase-js`
 - Create Supabase client helpers for server and client components
 - Build `/login` page with email + password form
@@ -159,6 +170,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Add `/auth/signout` route
 
 **Acceptance criteria**:
+
 - New user can sign up with email + password
 - Email confirmation flow works end-to-end
 - User can log in and log out
@@ -176,6 +188,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Set up Next.js route groups for marketing, internal dashboard, and client portal with appropriate layouts.
 
 **Tasks**:
+
 - Create `(marketing)`, `(internal)`, `(portal)` route groups
 - Build root layout with Tailwind + shadcn/ui base
 - Build marketing layout (no auth required)
@@ -184,6 +197,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Install shadcn/ui base components: Button, Card, Input, Form
 
 **Acceptance criteria**:
+
 - Visiting `/` shows marketing layout
 - Visiting `/portal` and `/internal` apply correct layouts
 - Tailwind classes work across all groups
@@ -201,6 +215,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Protect `/portal` and `/internal` routes by redirecting unauthenticated or unauthorized users.
 
 **Tasks**:
+
 - Create middleware that reads Supabase session
 - Redirect unauthenticated users from `/portal` to `/login`
 - Redirect non-internal users from `/internal` to `/login`
@@ -209,6 +224,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Test all four redirect scenarios
 
 **Acceptance criteria**:
+
 - Unauthenticated user on `/portal` redirects to `/login`
 - Authenticated tenant user on `/internal` redirects to `/login` (not authorized)
 - Authenticated internal user reaches `/internal`
@@ -226,6 +242,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: On new user signup, automatically create a `tenants` row and link the user to it via `tenant_users`.
 
 **Tasks**:
+
 - Create Supabase database function `handle_new_user()` triggered on `auth.users` insert
 - Function creates a new `tenants` row with default values
 - Function inserts a `tenant_users` row linking the user as owner
@@ -234,6 +251,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Add migration that registers the trigger
 
 **Acceptance criteria**:
+
 - New signup automatically creates exactly one tenant
 - User is linked as `owner` role
 - Default `provider_config` is the India English stack
@@ -251,6 +269,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Set up FastAPI app with structured routing, asyncpg connection pool, and Pydantic models.
 
 **Tasks**:
+
 - Create app structure: `/routes`, `/models`, `/db`, `/services`, `/providers`
 - Set up asyncpg connection pool with retry logic
 - Create Pydantic v2 models for `Tenant`, `User`, `Agent`, `Call`
@@ -259,6 +278,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Configure structlog with JSON output
 
 **Acceptance criteria**:
+
 - App boots without errors via `uvicorn`
 - Connection pool initializes against Supabase
 - Pydantic models match DB schema
@@ -276,6 +296,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Verify Supabase JWT on every authenticated request and attach user + tenant context to the request.
 
 **Tasks**:
+
 - Implement JWT verification using Supabase's public JWKS
 - Create FastAPI dependency `get_current_user()` that extracts user from token
 - Create dependency `get_current_tenant()` that loads tenant via `tenant_users`
@@ -284,6 +305,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Cache JWKS for 10 minutes to avoid hot-path latency
 
 **Acceptance criteria**:
+
 - Valid token returns user object
 - Expired token returns 401
 - Missing token returns 401
@@ -301,6 +323,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Build the two foundational backend endpoints used by every other phase.
 
 **Tasks**:
+
 - Implement `GET /health` returning `{status: "ok", timestamp}`
 - Implement `GET /me` returning user + tenant + role
 - Add Pydantic response models
@@ -309,6 +332,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Verify both work in deployed environment
 
 **Acceptance criteria**:
+
 - `/health` returns 200 in under 100ms
 - `/me` returns full user + tenant payload when authenticated
 - `/me` returns 401 without auth
@@ -326,6 +350,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Build a Supabase service-role client for trusted backend writes and a check for whether the current user is an internal team member.
 
 **Tasks**:
+
 - Create service-role Supabase client (uses `SUPABASE_SERVICE_ROLE_KEY`)
 - Add FastAPI dependency `require_internal_user()`
 - Implement check that queries `internal_users` table for the current user
@@ -333,6 +358,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Document when to use service-role vs user-scoped client
 
 **Acceptance criteria**:
+
 - Service-role client can bypass RLS
 - `require_internal_user()` returns user when in `internal_users`, else 403
 - Audit log helper writes actor + action + payload + timestamp
@@ -350,6 +376,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Build a basic marketing landing page with hero, features, and CTA buttons.
 
 **Tasks**:
+
 - Design hero section with headline, subheadline, CTA
 - Add features section (3-4 cards)
 - Add "How it works" 3-step section
@@ -358,6 +385,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Add SEO meta tags
 
 **Acceptance criteria**:
+
 - Page renders correctly on desktop and mobile
 - All CTAs link to `/signup` or `/login`
 - Lighthouse score above 90 on performance
@@ -375,6 +403,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Build the navigation shell and placeholder for the client portal that Phase 5 will populate.
 
 **Tasks**:
+
 - Build sidebar navigation (Dashboard, Calls, Knowledge, Settings)
 - Build top header with user dropdown + sign-out
 - Create placeholder pages for each nav item
@@ -383,6 +412,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Make responsive
 
 **Acceptance criteria**:
+
 - Sidebar shows current page highlighted
 - User dropdown shows name and sign-out works
 - All placeholder pages route correctly
@@ -400,6 +430,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Build the navigation shell for the internal dashboard that Phase 3 will populate.
 
 **Tasks**:
+
 - Build sidebar navigation (Tenants, Calls, Audit Log, Metrics)
 - Build top header with internal-user dropdown
 - Create placeholder pages for each nav item
@@ -408,6 +439,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Make responsive
 
 **Acceptance criteria**:
+
 - Internal dashboard visually distinct from client portal
 - Sidebar navigation works
 - Placeholder pages route correctly
@@ -425,6 +457,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Deploy FastAPI to Render and configure external cron to prevent free-tier idle sleep.
 
 **Tasks**:
+
 - Create Render web service pointing at GitHub repo
 - Set Singapore region for proximity to Indian users
 - Configure environment variables (Supabase URL, keys, etc.)
@@ -433,6 +466,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Verify service stays warm for 24h continuously
 
 **Acceptance criteria**:
+
 - FastAPI accessible at production URL
 - Auto-deploy works on push to `main`
 - Cron ping verified hitting `/health` every 10 min
@@ -450,6 +484,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: Deploy Next.js to Vercel and wire custom domain with subdomains.
 
 **Tasks**:
+
 - Connect GitHub repo to Vercel project
 - Configure environment variables for production
 - Set up auto-deploy from `main`
@@ -458,6 +493,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Configure `api.` subdomain to proxy Render service
 
 **Acceptance criteria**:
+
 - Apex domain shows marketing site
 - `app.yourdomain.ai` shows portal (after login)
 - `api.yourdomain.ai/health` returns 200
@@ -475,6 +511,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 **Description**: End-to-end testing of all Phase 1 deliverables before moving to Phase 2.
 
 **Tasks**:
+
 - Run cross-tenant smoke test against production DB
 - Test full signup → email confirm → login → portal flow
 - Test internal-user login → internal dashboard flow
@@ -487,6 +524,7 @@ Foundation week. Both apps deployed, auth working, database schema and RLS in pl
 - Document any bugs found and fix or ticket
 
 **Acceptance criteria**:
+
 - Signup → confirmation → login works end-to-end
 - Two test tenants confirmed isolated
 - Internal-user role separation works
@@ -511,6 +549,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Provision Twilio account, complete India number verification, and purchase the first phone number for development.
 
 **Tasks**:
+
 - Complete Twilio India number verification (KYC docs)
 - Purchase one India local number for dev testing
 - Configure number for voice + SMS capabilities
@@ -519,6 +558,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Document phone number purchase flow for Phase 3 automation
 
 **Acceptance criteria**:
+
 - Twilio account verified and out of trial
 - One India number purchased and active
 - Credentials stored as secrets, not in code
@@ -536,6 +576,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Build the FastAPI endpoint that Twilio hits when a call comes in, returning TwiML that opens a Media Streams websocket.
 
 **Tasks**:
+
 - Create `POST /webhooks/twilio/voice` endpoint
 - Validate Twilio request signature using auth token
 - Return TwiML with `<Connect><Stream>` pointing at backend websocket URL
@@ -544,6 +585,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Handle missing or invalid signatures with 403
 
 **Acceptance criteria**:
+
 - Endpoint returns valid TwiML XML
 - Twilio signature verification works
 - Invalid signatures rejected with 403
@@ -561,6 +603,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Set up ngrok or similar for local development so Twilio can reach the local FastAPI instance.
 
 **Tasks**:
+
 - Install ngrok or alternative tunnel tool
 - Configure stable subdomain for repeatable testing
 - Point Twilio number webhook at ngrok URL during dev
@@ -569,6 +612,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Create script to start ngrok + FastAPI together
 
 **Acceptance criteria**:
+
 - Twilio can reach local FastAPI through ngrok
 - A test call to the dev number hits local webhook
 - README explains dev tunnel setup clearly
@@ -586,6 +630,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Install Pipecat as a Python dependency and build a minimal pipeline that connects to Twilio Media Streams.
 
 **Tasks**:
+
 - Add Pipecat and dependencies to `pyproject.toml`
 - Create `/services/voice/pipeline.py` for pipeline definitions
 - Build minimal pipeline with Twilio transport + a static "hello" output
@@ -594,6 +639,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Add basic logging for pipeline events
 
 **Acceptance criteria**:
+
 - Pipecat imports cleanly with no version conflicts
 - Websocket endpoint accepts Twilio Media Streams connections
 - Static audio plays back to caller (any sound)
@@ -611,6 +657,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Implement audio format conversion between Twilio (mulaw 8kHz) and Deepgram (linear16 PCM, 16kHz for STT input, 8kHz for TTS output back to Twilio).
 
 **Tasks**:
+
 - Verify Pipecat's built-in audio converters handle mulaw to PCM
 - Set up resampling from 8kHz to 16kHz for STT ingress
 - Configure Deepgram TTS to emit `linear16` 8kHz directly (avoid a downsample on egress)
@@ -620,6 +667,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Fix any clipping or artifacts in conversion
 
 **Acceptance criteria**:
+
 - Twilio mulaw audio converts to PCM 16kHz cleanly for Deepgram STT
 - Deepgram TTS audio plays back through Twilio without distortion
 - No buffer underruns or audio glitches on test calls
@@ -637,6 +685,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Build the protocol interfaces and registry that `design.md` §4 specifies, even though only one impl per role wires up in Phase 2.
 
 **Tasks**:
+
 - Create `STTProvider`, `TTSProvider`, `LLMProvider` Python protocols
 - Define shared Pydantic models: `Transcript`, `Message`, `ToolCall`, `LLMResponse`
 - Create provider registry dict mapping names to classes (`design.md` §4 layout)
@@ -645,6 +694,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Document the abstraction pattern in `/services/voice/providers/README.md`
 
 **Acceptance criteria**:
+
 - All three protocols defined with full method signatures
 - Registry resolves provider names to classes
 - Factory function returns a valid Pipeline given a tenant
@@ -662,6 +712,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Implement the `TTSProvider` protocol for Deepgram Aura-1 streaming TTS over the WebSocket Speak API.
 
 **Tasks**:
+
 - Set up Deepgram API key and add to Render secrets
 - Add `deepgram-sdk` to `pyproject.toml`
 - Implement `synthesize()` method returning async iterator of audio chunks
@@ -672,6 +723,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Test with various text lengths (5 to 200 words) and verify the "concise reply" budget (≤25 words / ~150 chars per turn) holds
 
 **Acceptance criteria**:
+
 - TTS synthesizes "Hello, how can I help you today?" to playable audio
 - Streaming works — first audio byte arrives in under 350ms p95
 - Audio plays back through Twilio without distortion at 8kHz
@@ -690,6 +742,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Implement the `STTProvider` protocol for Deepgram Nova-3 Monolingual streaming STT over the WebSocket Listen API.
 
 **Tasks**:
+
 - Reuse Deepgram credentials from 2.07
 - Implement `connect()` and `stream()` methods using the Deepgram WSS streaming endpoint
 - Return async iterator of `Transcript` objects (partial + final) via Deepgram's `interim_results`
@@ -699,6 +752,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Add latency logging from audio in to final transcript out
 
 **Acceptance criteria**:
+
 - STT transcribes a 5-second test audio clip correctly on Indian-accent English
 - Partial transcripts arrive before final (verified via log inspection)
 - Final transcript has high confidence (≥0.85) on clear audio
@@ -717,6 +771,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Implement the `LLMProvider` protocol for DeepSeek V4 Flash via the OpenAI-compatible native API.
 
 **Tasks**:
+
 - Set up DeepSeek API credentials in secrets
 - Use `openai` SDK with `base_url` set to DeepSeek endpoint
 - Implement `chat()` method supporting tools, max_tokens, system prompt
@@ -725,6 +780,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Add token usage logging per call
 
 **Acceptance criteria**:
+
 - LLM returns a coherent response to "Hello, who are you?"
 - Tool calling works for a test tool schema
 - Cache hit verified via response metadata (lower cost on repeat)
@@ -742,6 +798,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Configure voice activity detection and turn detection in the Pipecat pipeline so the agent only responds when the caller has stopped speaking.
 
 **Tasks**:
+
 - Enable Silero VAD in Pipecat pipeline
 - Tune VAD threshold for Indian English speech patterns
 - Configure turn detection to wait for end-of-speech (combine Silero with Deepgram `vad_events`)
@@ -750,6 +807,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Tune to avoid premature interruption of caller
 
 **Acceptance criteria**:
+
 - Agent waits for caller to finish before responding
 - Caller pauses within a sentence don't trigger response
 - End-of-turn detected within 1 second of caller stopping
@@ -767,6 +825,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Allow the caller to interrupt the agent mid-response and have the agent stop talking and listen.
 
 **Tasks**:
+
 - Configure Pipecat barge-in detection
 - Implement immediate TTS stop when caller speech detected (close Deepgram TTS websocket cleanly to avoid wasted characters being billed)
 - Drop any pending LLM/TTS output when interrupted
@@ -775,6 +834,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Verify no audio artifacts on interruption
 
 **Acceptance criteria**:
+
 - Caller can interrupt agent mid-sentence
 - Agent stops talking within 200ms of caller speaking
 - Pending TTS audio discarded cleanly
@@ -793,6 +853,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Wire all three providers into the Pipecat pipeline with a hardcoded system prompt and verify end-to-end conversation works.
 
 **Tasks**:
+
 - Connect Deepgram Nova-3 STT → DeepSeek V4 Flash LLM → Deepgram Aura-1 TTS in the pipeline
 - Add a hardcoded test system prompt (e.g., "You are a helpful AI receptionist. Keep replies under 25 words.")
 - Wire transcripts to LLM input and LLM output to TTS input
@@ -801,6 +862,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Test with a real phone call
 
 **Acceptance criteria**:
+
 - Caller can have a 5-turn back-and-forth conversation
 - Each turn's round-trip under 1.2s on the 90th percentile
 - Conversation memory works (agent references earlier turns)
@@ -819,6 +881,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Write a `calls` row when a call starts, update it on call end, and write `call_messages` per turn.
 
 **Tasks**:
+
 - On Twilio webhook, insert `calls` row with `started_at`, `twilio_call_sid`, hardcoded tenant/agent IDs for now
 - After each turn, insert `call_messages` row with role, content, latency
 - On status callback "completed", update `calls` with `ended_at`, `duration_secs`
@@ -828,6 +891,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Add database indexes for common query patterns
 
 **Acceptance criteria**:
+
 - Every call creates exactly one `calls` row
 - Every turn creates exactly one `call_messages` row
 - Call completion updates `ended_at` and `duration_secs`
@@ -846,6 +910,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Download the call recording from Twilio after call completion and upload to Supabase Storage.
 
 **Tasks**:
+
 - Enable recording on the Twilio number
 - Add background job triggered on status callback
 - Download recording from Twilio recording URL
@@ -854,6 +919,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Verify recording playback works
 
 **Acceptance criteria**:
+
 - Recording exists in Supabase Storage after call ends
 - `calls.recording_url` points to the right path
 - Recording playable via signed URL
@@ -871,6 +937,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Capture detailed latency metrics for every turn so bottlenecks can be diagnosed.
 
 **Tasks**:
+
 - Add timestamps at: audio in, STT final, LLM start, LLM end, TTS start, TTS first byte, TTS last byte
 - Compute per-segment latencies (STT time, LLM time, TTS time, total)
 - Write to `call_messages.latency_ms` (total) and a separate JSONB for the breakdown
@@ -879,6 +946,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Document the latency schema
 
 **Acceptance criteria**:
+
 - Every `call_messages` row has `latency_ms` populated
 - Breakdown JSONB shows STT, LLM, TTS components
 - Internal endpoint returns p50/p95/p99 over last 100 turns
@@ -896,6 +964,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Play a TTS-generated greeting immediately when the call connects, before the caller speaks.
 
 **Tasks**:
+
 - Add greeting step at pipeline start (before STT activation)
 - Use the system prompt to derive an initial greeting
 - TTS-synthesize and play immediately on websocket open
@@ -904,6 +973,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Test greeting variants with different prompts
 
 **Acceptance criteria**:
+
 - Caller hears greeting within 800ms of call connecting
 - Greeting is coherent and matches the system prompt
 - Caller can interrupt greeting via barge-in
@@ -921,6 +991,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Play a consent disclosure ("This call may be recorded for quality and AI assistance") before the AI agent starts.
 
 **Tasks**:
+
 - Pre-generate consent audio file or use TTS at call start
 - Add a TwiML `<Play>` or `<Say>` verb before `<Connect>`
 - Disclosure should be 3-5 seconds, clear and audible
@@ -929,6 +1000,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Verify legal-friendly wording
 
 **Acceptance criteria**:
+
 - Every inbound call hears the disclosure before AI greeting
 - Disclosure is in English and clearly audible
 - Disclosure captured in the call recording
@@ -946,6 +1018,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: Manage Pipecat agent process lifecycle: spawn on call start, clean up on call end or error.
 
 **Tasks**:
+
 - Track active agents in an in-memory registry keyed by `call_sid`
 - Spawn agent on websocket connect, register it
 - On call end (status callback or websocket close), kill the agent
@@ -954,6 +1027,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Add metrics: active agent count
 
 **Acceptance criteria**:
+
 - Active agent count visible via internal endpoint
 - Agents always terminated on call end
 - No orphan processes after 1 hour of normal traffic
@@ -971,6 +1045,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 **Description**: End-to-end testing of the voice pipeline before moving to Phase 3.
 
 **Tasks**:
+
 - Make 10+ real test calls from different phones
 - Verify p90 per-turn latency under 1.2 seconds
 - Verify all `calls` and `call_messages` rows written correctly
@@ -985,6 +1060,7 @@ Voice pipeline week. First end-to-end AI call from a real phone with hardcoded s
 - Confirm Deepgram $200 free credit is being drawn down on the dashboard and project a paid run-rate from the early call sample
 
 **Acceptance criteria**:
+
 - 10 successful test calls with no critical bugs
 - p90 latency under 1.2s
 - Zero orphan agent processes after test run
@@ -1010,6 +1086,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Finalize the `internal_users` table started in Phase 1, add role enum (`admin`, `support`), and seed the first internal user (you).
 
 **Tasks**:
+
 - Add `role` enum column to `internal_users` if not already present
 - Write migration to seed the founding internal user from a `INTERNAL_USER_EMAIL` env var on first deploy
 - Update `require_internal_user()` to also expose role on the request context
@@ -1017,6 +1094,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Document how to add a new internal user manually via SQL
 
 **Acceptance criteria**:
+
 - Founding internal user can sign up via the normal auth flow and is auto-promoted on first login
 - `require_internal_user()` blocks tenant-only users with 403
 - `require_internal_role("admin")` blocks support-role users with 403
@@ -1034,6 +1112,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Polish the internal-only login flow so it's visually and behaviorally distinct from the tenant login.
 
 **Tasks**:
+
 - Add a `/internal/login` page (separate route from `/login`)
 - Apply the internal-dashboard accent theme so it's obviously not the tenant portal
 - Redirect any internal user who lands on `/login` to `/internal` after auth
@@ -1041,6 +1120,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Add "request access" mailto link for non-internal users who land here by mistake
 
 **Acceptance criteria**:
+
 - `/internal/login` visually distinct from `/login`
 - Internal users land on `/internal` after success
 - Tenant users see a clear access-denied page (not a redirect loop)
@@ -1057,6 +1137,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the FastAPI endpoints the internal dashboard will use to list, view, create, and update tenants.
 
 **Tasks**:
+
 - `GET /internal/tenants` — paginated list with filters (status, market, search)
 - `GET /internal/tenants/{id}` — single tenant with linked agents and recent call summary
 - `POST /internal/tenants` — create tenant with default `provider_config` for selected market
@@ -1065,6 +1146,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - All writes append a row to `audit_log` via the helper from 1.13
 
 **Acceptance criteria**:
+
 - All four endpoints return correct shapes documented in OpenAPI
 - Pagination works (default 25 per page, max 100)
 - Search matches on name, contact email, phone number
@@ -1082,6 +1164,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the internal dashboard list view of all tenants.
 
 **Tasks**:
+
 - Replace the placeholder `/internal/tenants` page from 1.16 with a real table
 - Columns: name, market, status (active / paused / churned), agent count, calls last 7d, MRR
 - Filter chips: market, status, has-active-calls
@@ -1090,6 +1173,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - "New tenant" button top-right opens the create form (3.06)
 
 **Acceptance criteria**:
+
 - All tenants render with correct columns
 - Filters narrow results without page reload
 - Search debounced to 300ms
@@ -1107,6 +1191,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the per-tenant detail page that internal staff use to inspect, configure, and troubleshoot a tenant.
 
 **Tasks**:
+
 - Header: tenant name, market, status, contact, edit/pause buttons
 - Tabs: Overview, Agents, Calls, Knowledge (placeholder for Phase 4), Billing (placeholder for Phase 5), Audit
 - Overview tab: provider_config display, call volume sparkline (last 14 days), latest 5 calls
@@ -1115,6 +1200,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Audit tab: filtered audit log for this tenant
 
 **Acceptance criteria**:
+
 - Page loads under 1s for a tenant with ~1000 calls
 - Provider config editable inline (writes through 3.03 PATCH)
 - All linked data scoped to this tenant (no leakage)
@@ -1132,6 +1218,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the form that creates a tenant and provisions its first Twilio phone number in one flow.
 
 **Tasks**:
+
 - Modal form on the tenant list page: name, contact name, contact email, market dropdown (india_english, india_hindi, us_hipaa for v3 pre-prov), Twilio number purchase region (defaults to India)
 - On submit:
   - Search Twilio for available numbers in the chosen region
@@ -1143,6 +1230,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Surface Twilio errors gracefully (insufficient funds, KYC missing, etc.)
 
 **Acceptance criteria**:
+
 - New tenant + new Twilio number live in under 30 seconds
 - The purchased number is reachable: a test call hits Phase 2's webhook handler
 - Failed purchases roll back the tenant insert (transactional)
@@ -1160,6 +1248,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the FastAPI endpoints for creating, reading, updating, and deleting agents per tenant.
 
 **Tasks**:
+
 - `GET /internal/tenants/{tid}/agents` — list agents for a tenant
 - `POST /internal/tenants/{tid}/agents` — create agent
 - `PATCH /internal/tenants/{tid}/agents/{id}` — update agent (name, system_prompt, voice_id, tool_whitelist, status)
@@ -1169,6 +1258,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Validate `system_prompt` length (max 4000 chars)
 
 **Acceptance criteria**:
+
 - CRUD works against a fresh tenant
 - Invalid `voice_id` returns 422 with the list of allowed values
 - Soft delete sets `deleted_at`, agent stops accepting calls but historical calls remain
@@ -1186,6 +1276,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the form internal staff use to edit an agent's prompt, voice, and tools.
 
 **Tasks**:
+
 - Form fields: name, system_prompt (textarea with character count), voice_id (dropdown), tool_whitelist (multi-select — placeholder until Phase 4 tools), status
 - Voice dropdown sources from the Aura voice catalog (12 voices from 2.07), with a "preview" button that synthesizes a sample line and plays it inline
 - Validate before submit: prompt non-empty, prompt under 4000 chars
@@ -1193,6 +1284,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Add "Test call" button — generates a one-time Twilio number to call that bypasses tool execution (preview mode)
 
 **Acceptance criteria**:
+
 - All 12 Aura voices selectable and previewable
 - Voice preview audio plays within 1.5s of clicking
 - Prompt textarea shows live character count, blocks save above 4000
@@ -1210,6 +1302,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Convert the hardcoded tenant lookup in Phase 2's webhook handler into a real lookup by Twilio `To` number.
 
 **Tasks**:
+
 - Update `POST /webhooks/twilio/voice` to extract the `To` field from the Twilio payload
 - Query `agents` table joined with `tenants` where `agents.phone_number = To` and both are active
 - Return 404 with a graceful "this number is not configured" TwiML message if no match
@@ -1218,6 +1311,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Log the resolution decision for every inbound call
 
 **Acceptance criteria**:
+
 - Tenant A's number routes to tenant A's agent, tenant B's to tenant B's
 - Unknown number returns a polite "not configured" TwiML message (not a 500)
 - Lookup adds under 20ms to the webhook response
@@ -1235,6 +1329,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Replace the hardcoded provider wiring in 2.12 with a real factory that constructs a Pipecat pipeline from a tenant's `provider_config` and an agent's settings.
 
 **Tasks**:
+
 - Implement `make_pipeline(tenant, agent)` that:
   - Reads `tenant.provider_config` (`stt`, `tts`, `llm` keys)
   - Resolves each to a class via the registry from 2.06
@@ -1245,6 +1340,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Replace the hardcoded pipeline call in the websocket handler with `make_pipeline(tenant, agent)`
 
 **Acceptance criteria**:
+
 - Two tenants with different voices and prompts both work end-to-end on real calls
 - Switching a tenant's provider_config in the DB takes effect on the next call (no redeploy)
 - Stub providers raise a clear error at pipeline construction (not mid-call)
@@ -1262,6 +1358,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Generalize the audit log helper from 1.13 so every internal-user write across Phase 3 routes uses one consistent shape.
 
 **Tasks**:
+
 - Define `audit_log` payload schema: `actor_id`, `actor_type` (internal | tenant | system), `action`, `target_type`, `target_id`, `tenant_id`, `payload_json`, `created_at`
 - Add a decorator `@audit("action_name", target_type="...")` for FastAPI routes
 - Refactor 3.03, 3.06, 3.07, 3.08 to use the decorator
@@ -1269,6 +1366,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Add a system-actor variant for non-user-driven writes (Phase 4/5 jobs)
 
 **Acceptance criteria**:
+
 - Every internal-user write writes exactly one audit row
 - Audit row includes a diff of changed fields (not the full new state)
 - Redaction verified for a payload containing fake API keys
@@ -1286,6 +1384,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: Build the `/internal/audit` page that shows the audit log with filters.
 
 **Tasks**:
+
 - Paginated list, newest first, default 50 per page
 - Filter chips: actor type (internal / tenant / system), action, target type, date range
 - Per-tenant filter usable as `?tenant=<id>` (linked from tenant detail page)
@@ -1294,6 +1393,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Export current view as CSV
 
 **Acceptance criteria**:
+
 - Loads under 1s with 10k audit rows
 - Filters compose (multiple at once)
 - CSV export downloads with correct headers
@@ -1311,6 +1411,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: End-to-end test that confirms two tenants on two different numbers each get their own voice, prompt, and call records, with zero cross-tenant leakage.
 
 **Tasks**:
+
 - Create two test tenants via 3.06 with different voices (e.g. `aura-asteria-en` and `aura-orion-en`) and different prompts
 - Call tenant A's number, verify A's voice and A's prompt drive the conversation
 - Call tenant B's number, verify B's voice and B's prompt drive the conversation
@@ -1319,6 +1420,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Add this scenario to CI as a recorded-fixture test (no live phone needed)
 
 **Acceptance criteria**:
+
 - Two test tenants demonstrably get different voices on the same hardware
 - Each tenant's audit log only shows their own writes
 - `provider_snapshot` correctly captures each tenant's resolved config
@@ -1336,6 +1438,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 **Description**: End-to-end testing of the multi-tenant flow before moving to Phase 4.
 
 **Tasks**:
+
 - Create three tenants through the dashboard (no SQL shortcuts)
 - For each, create an agent, set a unique voice, set a unique prompt
 - Make a real call to each number, verify isolation
@@ -1346,6 +1449,7 @@ Multi-tenancy week. Convert the single hardcoded tenant from Phase 2 into a real
 - Confirm `make_pipeline` returns a stub error if a tenant's provider_config references a not-yet-implemented provider
 
 **Acceptance criteria**:
+
 - Three tenants live, three voices, three prompts, all isolated
 - Audit log shows every internal action with correct actor and tenant
 - Paused tenant rejects calls gracefully
@@ -1370,6 +1474,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Build the upload pipeline that puts a PDF into Supabase Storage and records a `knowledge_documents` row.
 
 **Tasks**:
+
 - Create Supabase Storage bucket `knowledge` with tenant-scoped access policy
 - Migration for `knowledge_documents` table (`id`, `tenant_id`, `agent_id`, `filename`, `storage_path`, `bytes`, `status`, `uploaded_at`, `processed_at`, `error`)
 - `POST /internal/tenants/{tid}/knowledge` — internal upload endpoint
@@ -1378,6 +1483,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Set initial status to `pending`
 
 **Acceptance criteria**:
+
 - Internal user can upload a PDF via the dashboard (UI in 4.15)
 - File appears in Storage at `knowledge/{tenant_id}/{doc_id}.pdf`
 - Duplicate uploads (same hash) for the same tenant are rejected with 409
@@ -1395,6 +1501,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Build the supporting CRUD around `knowledge_documents` so the dashboard can list, view, retry, and delete uploads.
 
 **Tasks**:
+
 - `GET /internal/tenants/{tid}/knowledge` — list documents
 - `GET /internal/tenants/{tid}/knowledge/{id}` — detail with chunk count and error if any
 - `POST /internal/tenants/{tid}/knowledge/{id}/reprocess` — re-trigger ingestion
@@ -1403,6 +1510,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Show ingestion progress as `chunks_total` / `chunks_done` on the detail endpoint
 
 **Acceptance criteria**:
+
 - All four endpoints return correct shapes
 - Reprocess endpoint flips `status` back to `pending` and enqueues the job
 - Delete removes Storage file and embeddings rows transactionally
@@ -1420,6 +1528,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Background job that extracts text from a PDF, chunks it, embeds the chunks, and writes them to `knowledge_embeddings`.
 
 **Tasks**:
+
 - Add `pdfplumber`, `tiktoken`, `openai` (for embeddings only) to `pyproject.toml`
 - Implement extraction: page-by-page text via pdfplumber, dropping empty pages and headers/footers heuristically
 - Chunk by tiktoken: 500-token chunks with 50-token overlap, target model `cl100k_base` encoding
@@ -1430,6 +1539,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Run as a background worker — Phase 4 uses an asyncio task; can be promoted to a queue later
 
 **Acceptance criteria**:
+
 - A 30-page menu PDF processes in under 60 seconds
 - Chunk count reasonable (~100 for a 30-page doc)
 - Embeddings dimension is 1536
@@ -1448,6 +1558,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Configure pgvector for similarity search at production speed.
 
 **Tasks**:
+
 - Confirm pgvector extension enabled (from 1.03)
 - Add migration for `knowledge_embeddings` table with `embedding vector(1536)` column
 - Add ivfflat index with `lists = 100` (good default for under 1M rows; tune later)
@@ -1456,6 +1567,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Smoke test: insert 1000 fake embeddings, query top-5, verify p95 under 50ms
 
 **Acceptance criteria**:
+
 - Index exists and is used by `EXPLAIN` on a similarity query
 - Top-5 query under 50ms p95 with 1000 rows
 - Index rebuild procedure documented
@@ -1472,6 +1584,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Complete the embeddings schema and add a SQL function that retrieves the top-K relevant chunks for a tenant + query embedding.
 
 **Tasks**:
+
 - Migration for `knowledge_embeddings`: `id`, `tenant_id`, `document_id`, `chunk_index`, `content`, `token_count`, `embedding vector(1536)`, `created_at`
 - Add RLS policy: tenant-user can only read their own rows; internal can read all
 - Create SQL function `retrieve_knowledge(p_tenant_id uuid, p_query_embedding vector(1536), p_threshold float DEFAULT 0.7, p_limit int DEFAULT 5)` returning matching chunks ranked by cosine similarity
@@ -1479,6 +1592,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Cache query embeddings in Upstash Redis with 5-minute TTL (same exact query = no re-embed)
 
 **Acceptance criteria**:
+
 - Retrieval returns 0–5 chunks based on relevance (threshold respected)
 - Tenant A querying never returns tenant B's chunks (RLS verified)
 - Helper round-trip under 200ms p95 (cache miss) or under 20ms (cache hit)
@@ -1495,6 +1609,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Wire the retrieval helper into the LLM step of the Pipecat pipeline so the agent can answer from the tenant's knowledge.
 
 **Tasks**:
+
 - In `make_pipeline`, wrap the LLM provider with a retrieval step
 - On each user turn, embed the latest utterance, call `retrieve_knowledge`
 - If chunks come back above the threshold, prepend them to the LLM context as a `KNOWLEDGE` system message block
@@ -1503,6 +1618,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Persist retrieval metrics on `call_messages` in a `retrieval_meta` JSONB column
 
 **Acceptance criteria**:
+
 - A test call to a tenant with an uploaded menu PDF answers menu questions correctly
 - A test call to the same tenant with off-topic questions falls back to "I don't know" (does not hallucinate)
 - Retrieval adds under 200ms p95 to the per-turn loop (cache hit path under 20ms)
@@ -1520,6 +1636,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Build the framework that defines, registers, and dispatches tools the LLM can call.
 
 **Tasks**:
+
 - Create `tools/` package with a base `Tool` class: `name`, `description`, `parameters_schema` (Pydantic), `execute(tenant, agent, call, args)`
 - Implement a `ToolRegistry` that maps tool names to classes
 - Wire the registry into the LLM provider: at pipeline construction, expose only tools in the agent's `tool_whitelist` to the LLM
@@ -1527,6 +1644,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Add a dispatcher that runs `execute()` when the LLM emits a tool call, surfaces results back into the conversation context, and logs the call to `call_messages` with role `tool`
 
 **Acceptance criteria**:
+
 - Adding a new tool is a single-class change plus a registry entry
 - Whitelist enforcement: a tool not in the agent's whitelist never appears in the LLM's tool list
 - Tool execution errors surface to the LLM as `{"error": "<message>"}` so the agent can apologize and recover
@@ -1543,6 +1661,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: First tool. Transfers the call to a human number configured on the agent.
 
 **Tasks**:
+
 - Add `transfer_to_number` column to `agents` table (E.164 format)
 - Implement `TransferToHuman` tool: `parameters_schema` is `{reason: str}` (optional)
 - `execute()` emits a Pipecat command that issues a Twilio `<Dial>` TwiML to redirect the call
@@ -1551,6 +1670,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Handle the case where the transfer number is missing or invalid (graceful error to LLM)
 
 **Acceptance criteria**:
+
 - LLM can call `transferToHuman` and the call actually rings the configured number
 - Bridge message plays before the transfer
 - Transfer event captured in `call_messages` and `calls`
@@ -1568,6 +1688,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Send an SMS to the caller (or a number derived from the conversation) via the Twilio API.
 
 **Tasks**:
+
 - Implement `SendSms` tool: `parameters_schema` is `{to: str (E.164), body: str (max 320 chars)}`
 - `execute()` sends via Twilio Messaging API using the tenant's number as `from`
 - Default `to` to the caller's number when the LLM doesn't supply one
@@ -1576,6 +1697,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Handle Twilio errors gracefully (returns to LLM as a structured error)
 
 **Acceptance criteria**:
+
 - LLM can send an SMS to the caller's number during the call
 - SMS appears in `sms_log` with Twilio SID
 - Twilio delivery status (delivered / failed) backfilled via a status webhook
@@ -1593,6 +1715,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Notify the tenant's owner (configured contact) about a call that needs their attention, with a one-line summary.
 
 **Tasks**:
+
 - Add `escalation_email` and `escalation_sms` columns to `tenants` (either or both can be set)
 - Implement `EscalateToOwner` tool: `parameters_schema` is `{summary: str (max 200 chars), urgency: enum(low|medium|high)}`
 - `execute()` sends an email via Resend and/or an SMS via Twilio depending on tenant config
@@ -1601,6 +1724,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Don't block the call — escalation is fire-and-forget from the agent's POV
 
 **Acceptance criteria**:
+
 - Owner receives email/SMS within 30s of the LLM calling the tool
 - Email links land on the right call detail page (Phase 5 routes)
 - Failures don't crash the call — agent says "I've passed this to the team" regardless
@@ -1618,6 +1742,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Lock down which tools each agent can call and validate all tool arguments before dispatch.
 
 **Tasks**:
+
 - Confirm `agents.tool_whitelist` is a text[] column; populate the multi-select in 3.08 with the three v1 tools
 - At `make_pipeline`, filter the registry to only whitelisted tools before exposing schemas to the LLM
 - Run Pydantic validation on every incoming tool call's arguments; on validation failure, return the error to the LLM so it can retry
@@ -1625,6 +1750,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Log every tool dispatch with the resolved args (after validation) and the result size
 
 **Acceptance criteria**:
+
 - Calling a non-whitelisted tool is impossible — it doesn't appear in the LLM's tool list
 - Invalid arguments (wrong types, missing required fields) return a clear error the LLM can recover from
 - Agent save form (3.08) rejects unknown tool names
@@ -1641,6 +1767,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Prevent runaway tool spam and accidental duplicate side effects.
 
 **Tasks**:
+
 - Implement Upstash Redis rate limits per tool per call: `transferToHuman` max 1/call, `sendSms` max 3/call, `escalateToOwner` max 2/call
 - On rate-limit hit, return a structured error to the LLM ("This tool has been used the maximum number of times this call")
 - Add an idempotency key (UUID generated per LLM tool-call attempt) so re-tries of the same call don't double-execute
@@ -1648,6 +1775,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Add unit tests for the rate limit + idempotency logic
 
 **Acceptance criteria**:
+
 - LLM that tries to call `sendSms` 5 times only sends 3 SMSes
 - The same idempotency key returns the cached result instead of re-executing
 - Rate limit resets between calls (per-call scope, not per-tenant)
@@ -1664,6 +1792,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: After every call ends, generate a one-paragraph summary, an intent classification, and an outcome label; write to `calls`.
 
 **Tasks**:
+
 - Add columns to `calls`: `summary` (text), `intent` (text), `outcome` (enum: resolved, transferred, escalated, abandoned, other), `summary_generated_at`
 - Background job triggered on Twilio status callback "completed"
 - Job reads the call's `call_messages`, builds a prompt for DeepSeek V4 Flash, parses a JSON response
@@ -1672,6 +1801,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Surface summary + intent in the Phase 5 portal call detail view
 
 **Acceptance criteria**:
+
 - Every completed call has a summary within 60s of `ended_at`
 - Summary is under 80 words and grounded in the actual transcript (not hallucinated)
 - Intent classification consistent across re-runs for the same transcript (low temperature)
@@ -1689,6 +1819,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Compute and persist the actual COGS for each call from `provider_snapshot`, duration, and per-turn `tts_chars`.
 
 **Tasks**:
+
 - Add columns to `calls`: `cost_stt_usd`, `cost_tts_usd`, `cost_llm_usd`, `cost_telephony_usd`, `cost_total_usd`
 - Build a `cost_calculator.py` module with provider-specific formulas:
   - Deepgram STT Nova-3 Monolingual: `duration_secs / 60 * 0.0048`
@@ -1700,6 +1831,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Aggregate to per-tenant per-day for the billing job in Phase 5
 
 **Acceptance criteria**:
+
 - Cost columns populated within 60s of `ended_at`
 - Calculator matches actual Deepgram and DeepSeek invoices within ±5% on a 100-call sample
 - TTS cost is per-character (not per-minute) — verified against the `tts_chars` sum
@@ -1717,6 +1849,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: Add the Knowledge tab to the internal tenant detail page so internal staff can upload, inspect, retry, and delete documents.
 
 **Tasks**:
+
 - Build the Knowledge tab in `/internal/tenants/{id}?tab=knowledge`
 - File upload widget (drag-and-drop, PDF only, max 20MB) wired to 4.01
 - List view: filename, uploaded date, status (pending / processing / ready / error), chunk count
@@ -1725,6 +1858,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Reprocess button and delete button (with confirmation modal)
 
 **Acceptance criteria**:
+
 - Upload to ready state visible in the UI without page refresh
 - Failed docs show the error message and offer reprocess
 - Sample chunks readable so internal staff can sanity-check ingestion quality
@@ -1742,6 +1876,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 **Description**: End-to-end testing of knowledge retrieval, tool calling, summaries, and cost calculation before moving to Phase 5.
 
 **Tasks**:
+
 - Upload a realistic 20-page menu PDF for a test tenant
 - Verify ingestion completes and chunks look right
 - Make 10 test calls covering: menu questions (RAG path), transfer request (tool path), SMS request (tool path), escalation (tool path), and one purely conversational call
@@ -1753,6 +1888,7 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 - Check Deepgram dashboard consumption matches the test-call duration ± 10%
 
 **Acceptance criteria**:
+
 - 10 test calls succeed with the right tools called
 - Summaries readable and accurate
 - Costs match manual calc within ±5%
@@ -1768,162 +1904,160 @@ Knowledge week. Agents stop being generic and start being useful for a real busi
 
 # Phase 5 — Client portal, billing, and compliance
 
-Self-serve readiness week. Tenants can see their own data in the portal. Stripe charges them per plan and meters overages. DPDP export/delete endpoints work. Sentry catches errors with PII scrubbed. The first paying cohort can be onboarded with a clear playbook.
+Onboarding-readiness week. Tenants can see their own data in the read-only portal. Onboarding is **sales-led**: prospects reach us through landing-page CTAs, we agree a plan and take payment over email, then the team provisions the tenant and issues a login valid for the paid period (`paid_until`). **No payment gateway in v1** — payments are offline and recorded manually; a real gateway (e.g. Razorpay/Cashfree) is deferred. **Paid-only — there is no free trial**; access begins after payment. DPDP export/delete endpoints work. Sentry catches errors with PII scrubbed.
 
 ---
 
-## 5.01 — Stripe products and prices setup
+## 5.01 — Pricing plans (config, no payment gateway)
 
-**Description**: Configure the Stripe products, prices, and metered usage components for the v1 India English plans.
+**Description**: Define the v1 India English plans in the backend for display and as the reference the team uses when invoicing manually. No payment gateway.
 
 **Tasks**:
-- Create Stripe account in test mode + live mode
-- Create products: `India Starter`, `India Pro`
-- Create recurring prices in INR (or USD with display-as-INR per legal review):
-  - Starter: ₹2,999/month, includes 300 min/month
-  - Pro: ₹7,999/month, includes 1000 min/month
-- Create metered overage prices:
-  - Starter overage: ₹15/min
-  - Pro overage: ₹12/min
-- Configure tax (Stripe Tax for India GST)
-- Store Stripe IDs in a `pricing_plans` table for backend reference
+
+- Migration for `pricing_plans`: `id`, `key` (`starter` | `pro`), `name`, `price_inr_month`, `included_minutes`, `overage_inr_per_min`, `active`, `created_at`
+- Seed:
+  - Starter: ₹2,999/month, 300 min/month, ₹15/min overage
+  - Pro: ₹7,999/month, 1000 min/month, ₹12/min overage
+- Read API for the marketing pricing page + internal onboarding use
+- GST (18%) noted for manual invoices — no automated tax
 
 **Acceptance criteria**:
-- All products and prices visible in Stripe Dashboard (test mode)
-- Metered usage component attached to each subscription price
-- `pricing_plans` table seeded with IDs
-- Stripe Tax confirmed configured for IN region
-- Live mode mirrors test mode (separate IDs but same structure)
+
+- `pricing_plans` seeded and queryable
+- Marketing pricing page + internal onboarding read the same source
+- Plans editable via migration/seed without code changes
 
 **Dependencies**: None (can start in parallel)
-
-**Estimate**: 3h
-
----
-
-## 5.02 — Stripe customer on tenant insert
-
-**Description**: Automatically create a Stripe customer for every new tenant.
-
-**Tasks**:
-- Add `stripe_customer_id`, `stripe_subscription_id`, `current_plan`, `subscription_status` columns to `tenants`
-- On tenant creation (3.06), call Stripe `customers.create` with the tenant name + contact email
-- Save the customer ID back to `tenants`
-- Handle the case where the tenant pre-exists (no Stripe customer yet) — backfill script
-- Don't auto-subscribe — subscription happens in 5.03 via Checkout
-
-**Acceptance criteria**:
-- New tenant created via 3.06 has a `stripe_customer_id` within 5s
-- Backfill script runs idempotently
-- Stripe customer email and name match the tenant
-- Failed Stripe create doesn't block tenant creation (logs error, retries via job)
-
-**Dependencies**: 3.06, 5.01
-
-**Estimate**: 2h
-
----
-
-## 5.03 — Checkout session endpoint
-
-**Description**: Build the FastAPI endpoint that returns a Stripe Checkout URL for the tenant to start their subscription.
-
-**Tasks**:
-- `POST /api/billing/checkout` — body: `{plan: 'starter' | 'pro'}`
-- Endpoint creates a Stripe Checkout Session in subscription mode with the right price IDs
-- Success URL → `/portal/billing?status=success`, cancel URL → `/portal/billing?status=cancel`
-- Pre-fill customer ID from `tenants.stripe_customer_id`
-- Tax automatically calculated by Stripe Tax (set `automatic_tax`)
-- Return `{url: <checkout_url>}` to the frontend
-
-**Acceptance criteria**:
-- Tenant can hit checkout and complete payment in test mode
-- Successful checkout creates a subscription on the tenant's Stripe customer
-- Tax line item appears on the invoice (GST for IN)
-- Cancellation redirects gracefully to the billing page
-- Only authenticated tenant users can call the endpoint
-
-**Dependencies**: 5.02
-
-**Estimate**: 2h
-
----
-
-## 5.04 — Customer Portal link endpoint
-
-**Description**: Give tenants a one-click button that drops them into the Stripe Customer Portal to manage their subscription, payment method, and invoices.
-
-**Tasks**:
-- `POST /api/billing/portal` — returns `{url: <customer_portal_url>}`
-- Use Stripe `billingPortal.sessions.create` with the tenant's customer ID
-- Configure Customer Portal features in Stripe Dashboard: update payment method, cancel subscription, view invoices, download invoices
-- Set return URL to `/portal/billing`
-- Audit log every portal session creation (so internal staff can see if a tenant managed their own billing)
-
-**Acceptance criteria**:
-- Authenticated tenant gets a working portal URL
-- Portal lets them update payment method
-- Cancellation in portal triggers our webhook handler (5.05) and updates subscription_status
-- Audit row captures portal session creation
-- No way to access another tenant's portal
-
-**Dependencies**: 5.02
 
 **Estimate**: 1.5h
 
 ---
 
-## 5.05 — Stripe webhook handler
+## 5.02 — Lead capture from landing CTAs
 
-**Description**: Handle the five critical Stripe events that drive subscription state in our DB.
+**Description**: Landing-page CTAs ("Get started", "Book a demo", "Contact sales") open a dialog that captures the prospect and notifies the team by email — the entry point of the sales-led onboarding. No free trial — v1 is paid-only.
 
 **Tasks**:
-- `POST /webhooks/stripe` endpoint with Stripe signature verification
-- Handle events:
-  - `checkout.session.completed` — set tenant `current_plan`, `subscription_status='active'`, `stripe_subscription_id`
-  - `customer.subscription.updated` — sync `current_plan` and `subscription_status`
-  - `customer.subscription.deleted` — set `subscription_status='canceled'`, schedule a 7-day grace period before disabling agents
-  - `invoice.payment_succeeded` — write to `billing_events`
-  - `invoice.payment_failed` — write to `billing_events`, send email via Resend ("payment failed, please update card")
-- Idempotency: store processed event IDs in Redis with 24h TTL
-- All event handlers audited via 3.11 (system-actor)
+
+- Migration for `leads`: `id`, `business_name`, `contact_name`, `contact_email`, `contact_phone`, `message`, `source` (which CTA), `status` (`new` | `contacted` | `converted` | `lost`), `created_at`
+- Public `POST /leads` endpoint (rate-limited, no auth): validate + store the lead, send a notification email to the team inbox via Resend (4.10)
+- Marketing: CTA buttons open a lead dialog (name, business, email, phone, optional message) → submit → success state ("We'll email you shortly")
+- Update landing-page copy + CTAs to the paid-only, sales-led model: **remove all "free trial" / "no credit card" / "7-day free trial" messaging** (hero, pricing/FAQ, footer CTA, SEO meta); CTAs read "Get started" / "Book a demo" / "Contact sales" and open the lead dialog
+- Internal "Leads" inbox page: list + status update (new → contacted → converted / lost)
 
 **Acceptance criteria**:
-- All five events handled correctly on Stripe test fixtures
-- Signature verification rejects unsigned/tampered payloads with 400
-- Idempotency works: same event ID re-delivered doesn't double-apply
-- Subscription cancellation does NOT immediately disable agents — 7-day grace
-- Payment-failed email lands within 60s
 
-**Dependencies**: 5.02
+- Submitting the dialog stores a `leads` row and emails the team within 60s
+- Spam/abuse mitigated (rate limit + basic validation)
+- Internal staff can see and triage leads
+- No public self-serve tenant creation happens from the landing page
+- No "free trial" / "no credit card" messaging remains anywhere on the marketing site (paid-only)
 
-**Estimate**: 4h
+**Dependencies**: 4.10
+
+**Estimate**: 3h
 
 ---
 
-## 5.06 — Metered overage aggregation job
+## 5.03 — Tenant access window + expiry enforcement
 
-**Description**: Daily job that aggregates each tenant's call minutes from `calls`, subtracts their included-minutes allowance, and reports overage to Stripe as metered usage.
+**Description**: Access is time-bound to what the client paid for. A `paid_until` date governs whether a tenant's agents answer calls.
 
 **Tasks**:
-- Scheduled job at 00:30 IST daily
-- For each active tenant: sum `duration_secs / 60` for the previous day's calls
-- Compute carry-over: cumulative minutes for the current billing cycle vs included minutes
-- For minutes over the allowance, report to Stripe via `subscriptionItems.createUsageRecord` (action: increment)
-- Write a row to `billing_events` for each day's report
-- Handle edge cases: tenant mid-cycle plan change, tenant with no active subscription, billing cycle boundaries
-- Idempotency: re-running for the same day produces the same Stripe usage (use timestamp-based dedup)
+
+- Add `paid_until timestamptz` to `tenants`
+- Scheduled job: pause (set `status = 'paused'`) any active tenant whose `paid_until` has passed; log to audit (system actor)
+- Call routing already gates on `status = 'active'`, so paused tenants stop answering immediately
+- Internal UI: set / extend `paid_until` on a tenant (audited)
+- Optional: warn the team N days before expiry
 
 **Acceptance criteria**:
-- After 10 test calls totaling 80 minutes for a Starter tenant (300 min allowance), no overage reported
-- After 350 minutes total, 50 minutes of overage reported to Stripe
-- Re-running the job for the same day doesn't double-bill
-- Stripe usage records visible on the test subscription
+
+- A tenant past `paid_until` stops taking calls within the job interval
+- Extending `paid_until` re-activates the tenant
+- Per-call scope unaffected — this is per-tenant access, not per-call
+- Every change to `paid_until` is audited
+
+**Dependencies**: 3.09, 3.11
+
+**Estimate**: 3h
+
+---
+
+## 5.04 — Manual onboarding + client login provisioning
+
+**Description**: After the team agrees a plan and receives payment over email, they provision the tenant and hand the client a login valid for the paid period.
+
+**Tasks**:
+
+- Reuse tenant provisioning (3.06): create tenant + agent + number
+- Create the client's portal login: a `tenant_users` row linked to a Supabase auth user (invite / set password / magic link)
+- Set `paid_until` (5.03) to the paid-through date
+- Send a welcome email (Resend) with the portal URL + login instructions
+- Mark the originating lead `converted` (5.02)
+- **Disable public self-serve signup** (modifies Phase 1): landing CTAs point to the lead dialog, not `/signup`; gate the 1.09 `handle_new_user` auto-tenant trigger so tenants are created only by the team — no public self-serve tenant creation
+
+**Acceptance criteria**:
+
+- Team can take a lead from "paid" to "client logged into the portal" without self-serve checkout
+- Client login only sees their own tenant (RLS)
+- Welcome email lands within 60s with a working portal link
+- `paid_until` reflects the paid period
+- No public visitor can self-create a tenant (signup is team-driven only in v1)
+
+**Dependencies**: 3.06, 5.02, 5.03
+
+**Estimate**: 3h
+
+---
+
+## 5.05 — Record a payment (manual) + extend access
+
+**Description**: Record an offline payment (UPI / bank transfer / etc.) so access and billing history stay accurate. Replaces automated gateway webhooks.
+
+**Tasks**:
+
+- Internal "Record payment" action on a tenant: `amount_inr`, `method`, `plan`, `period_start`, `period_end`, `reference` (UTR / note)
+- Sets / extends `tenants.paid_until` to `period_end` (5.03)
+- Writes a `billing_events` row (`event_type = 'payment_recorded'`)
+- Audited via 3.11
+
+**Acceptance criteria**:
+
+- Recording a payment extends `paid_until` and writes exactly one `billing_events` row
+- Internal billing view shows payment history per tenant
+- No card / payment-instrument data stored — only an offline payment reference
+- Recording a payment for an expired tenant re-activates it (via 5.03)
+
+**Dependencies**: 5.03, 5.07
+
+**Estimate**: 2h
+
+---
+
+## 5.06 — Usage aggregation (provider-agnostic)
+
+**Description**: Daily rollup of each tenant's minutes + cost from `calls`, for the portal usage card and the team's manual invoicing. No external usage push.
+
+**Tasks**:
+
+- Scheduled job at 00:30 IST daily
+- For each active tenant: sum `duration_secs / 60` and `cost_total_usd` for the previous day's calls
+- Compute cycle-to-date minutes vs the plan's included minutes (overage minutes, for manual invoicing)
+- Write a `billing_events` row (`event_type = 'usage_reported'`) per tenant per day
+- Idempotent: re-running for the same day replaces, doesn't append
+
+**Acceptance criteria**:
+
+- After 10 test calls totaling 80 minutes for a Starter tenant (300 included), 0 overage minutes recorded
+- After 350 minutes total, 50 overage minutes recorded for invoicing
+- Re-running the job for the same day doesn't double-count
+- Usage card + manual invoice read the same numbers
 - Job runs in under 5 minutes for 1000 tenants
 
-**Dependencies**: 4.14, 5.05
+**Dependencies**: 4.14
 
-**Estimate**: 4h
+**Estimate**: 3h
 
 ---
 
@@ -1932,17 +2066,19 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Define and populate the `billing_events` audit-style log that powers the portal billing page and internal billing dashboards.
 
 **Tasks**:
-- Migration for `billing_events`: `id`, `tenant_id`, `event_type` (invoice_paid, invoice_failed, usage_reported, subscription_created, subscription_canceled, plan_changed), `stripe_event_id`, `amount_inr` (nullable), `metadata_json`, `created_at`
-- Write helper in 5.05 (webhook handler) and 5.06 (aggregation job)
+
+- Migration for `billing_events`: `id`, `tenant_id`, `event_type` (`payment_recorded`, `usage_reported`, `access_extended`, `plan_changed`), `amount_inr` (nullable), `metadata_json`, `created_at`
+- Write helper used by 5.05 (record payment) and 5.06 (usage aggregation)
 - Add tenant-scoped read API: `GET /api/billing/events` for the portal billing page
 - Internal-scoped read API: `GET /internal/tenants/{tid}/billing` for staff troubleshooting
 
 **Acceptance criteria**:
-- Every webhook event and every usage report writes exactly one row
+
+- Every recorded payment and every daily usage report writes exactly one row
 - Tenant API returns only their own events (RLS-enforced)
 - Internal API returns any tenant's events
 - Schema is queryable for monthly revenue / MRR rollups
-- No PII (card numbers, CVV) ever stored in `metadata_json`
+- No payment-instrument data ever stored in `metadata_json` (offline reference only)
 
 **Dependencies**: 5.05, 5.06
 
@@ -1955,14 +2091,16 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Replace the Phase 1 placeholder `/portal` dashboard with the real overview a tenant sees on login.
 
 **Tasks**:
+
 - Hero stats: calls this month, minutes used / minutes included, escalations this month
 - Calls-over-time chart (last 14 days)
 - "Recent calls" list (5 most recent, click → call detail)
 - "Knowledge status" card (X documents, last upload date)
-- "Plan" card (current plan, next renewal, manage subscription button → 5.04)
+- "Plan" card (current plan, access valid until `paid_until`, "Contact us to renew" — no self-serve)
 - Empty states for tenants with no calls / no knowledge yet
 
 **Acceptance criteria**:
+
 - Loads under 1s for tenants with up to 10k calls
 - Numbers match `calls` table aggregation exactly
 - Charts render correctly on mobile
@@ -1980,6 +2118,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Build the tenant-facing call history page.
 
 **Tasks**:
+
 - Paginated list, newest first, default 25 per page
 - Columns: started at, caller number (masked: +91 XXXXX X1234), duration, outcome, intent, summary preview (first 100 chars)
 - Filter chips: outcome, intent, date range
@@ -1988,6 +2127,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Export current view as CSV (tenant-friendly columns only, no internal cost fields)
 
 **Acceptance criteria**:
+
 - All columns populated from Phase 4 data
 - Caller number masking applied client-side (full number still in DB for compliance)
 - CSV export downloads correctly
@@ -2005,6 +2145,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Build the per-call detail view for tenants — transcript, audio player, summary, escalations, tools called.
 
 **Tasks**:
+
 - Header: call ID, started/ended timestamps, duration, caller number (masked), agent name
 - Summary card with intent and outcome badges
 - Audio player with playback controls (signed URL from Storage, 1-hour expiry)
@@ -2014,6 +2155,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - "Download transcript" button → text file
 
 **Acceptance criteria**:
+
 - Audio plays inline in the browser
 - Transcript renders correctly for calls with 50+ turns
 - Signed URL refreshes if a tenant reloads after >1h
@@ -2028,23 +2170,23 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 
 ## 5.11 — Portal billing page
 
-**Description**: Build the billing page where tenants see their plan, usage, invoices, and manage their subscription.
+**Description**: Build the read-only billing page where tenants see their plan, usage, payment history, and access window. No self-serve payment in v1.
 
 **Tasks**:
-- Plan card: current plan, included minutes, renewal date, "Change plan" CTA (links to checkout 5.03 with the other plan)
-- Usage card: minutes used this cycle, projected end-of-cycle minutes, overage cost so far
-- Invoices list: last 12 invoices from Stripe (status, amount, date, PDF download via Stripe-hosted URL)
-- Payment method summary (last 4, expiry) + "Update payment method" → 5.04 portal session
-- Subscription status banner: warns if `subscription_status` is `past_due` or in grace period
+
+- Plan card: current plan, included minutes, **access valid until `paid_until`**, "Contact us to renew" (mailto / lead form — no checkout)
+- Usage card: minutes used this cycle, projected end-of-cycle minutes, overage minutes so far (from 5.06)
+- Payment history list: recorded payments + daily usage rollups from `billing_events`
+- Expiry banner: warns when `paid_until` is near or past (read-only, points to renewal contact)
 
 **Acceptance criteria**:
-- All data sources from `billing_events`, `tenants.subscription_status`, and Stripe API
-- Invoice PDFs open from Stripe's hosted URLs (no proxying)
-- Update payment method opens Customer Portal correctly
-- Past-due tenants see a clear banner with next steps
-- Plan change CTA pre-selects the other plan in Checkout
 
-**Dependencies**: 5.03, 5.04, 5.07
+- All data sources from `billing_events`, `tenants.paid_until`, and the usage rollup
+- Tenants near/after expiry see a clear banner with how to renew
+- No payment-collection UI (no checkout, no card entry) in v1
+- Cross-tenant: a tenant only sees their own billing data (RLS)
+
+**Dependencies**: 5.03, 5.06, 5.07
 
 **Estimate**: 3h
 
@@ -2055,6 +2197,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Build the DPDP-compliant data export endpoint that lets a tenant download all their data.
 
 **Tasks**:
+
 - `POST /api/dpdp/export` — kicks off a background job
 - Background job collects: tenant row, all users, all agents, all calls (with messages), all knowledge docs (metadata + content), all billing events, full audit log scoped to this tenant
 - Package as a ZIP with one JSON file per table + the original PDF files
@@ -2063,6 +2206,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Audit-log the export request and the email send
 
 **Acceptance criteria**:
+
 - Tenant can trigger export from `/portal/settings`
 - Email arrives within 5 minutes for a tenant with 1000 calls
 - ZIP contains all expected data (verified on a test tenant)
@@ -2081,21 +2225,23 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Build the DPDP-compliant data deletion endpoint.
 
 **Tasks**:
+
 - `POST /api/dpdp/delete` — requires a confirmation token sent to the tenant's email first
 - Background job:
   - Soft-deletes the tenant (sets `deleted_at`) so audit trail survives
   - Hard-deletes `call_messages`, `knowledge_embeddings`, Storage files (recordings + knowledge PDFs)
-  - Cancels the Stripe subscription
+  - Stops billing access (clears `paid_until`, marks the tenant churned)
   - Removes Twilio webhook config from purchased numbers (number itself can be released or retained per policy)
   - Anonymizes residual records (caller numbers in `calls` → null after the audit window)
 - Email the tenant when deletion is complete
 - Internal flag prevents accidental triggering for active paying tenants without explicit confirmation
 
 **Acceptance criteria**:
+
 - Tenant can request deletion from `/portal/settings`
 - Confirmation email arrives, click-through triggers actual deletion
 - All call recordings + knowledge files removed from Storage (verified)
-- Stripe subscription canceled (verified in Stripe dashboard)
+- Billing access stopped (`paid_until` cleared, tenant churned)
 - Audit log retains the deletion event (the audit row itself survives)
 - Re-signup with the same email creates a brand new tenant (no zombie data)
 
@@ -2110,6 +2256,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Confirm the Phase 2 pre-call consent disclosure (2.17) meets DPDP requirements and let tenants in different markets override the disclosure text.
 
 **Tasks**:
+
 - Review the 2.17 disclosure wording with a quick legal sanity-check against DPDP §6 (notice of processing)
 - Add `consent_disclosure_text` column to `tenants` (nullable; defaults to the standard line)
 - Update the Twilio voice webhook to use the tenant's override if set
@@ -2117,6 +2264,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Add a test that the disclosure plays before any audio capture starts (i.e. consent precedes recording)
 
 **Acceptance criteria**:
+
 - Standard disclosure passes a DPDP sanity-check (no legal pre-clearance in v1, but documented for v1.5 review)
 - Per-tenant override works end-to-end
 - Recording verifiably starts AFTER the disclosure plays (no pre-roll capture)
@@ -2133,6 +2281,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Daily job that deletes call recordings older than 30 days from Supabase Storage to honor the v1 retention policy.
 
 **Tasks**:
+
 - Scheduled job at 03:00 IST daily
 - Query `calls` where `recording_url IS NOT NULL` and `ended_at < now() - interval '30 days'`
 - Delete the Storage file
@@ -2142,6 +2291,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Audit log each deletion batch
 
 **Acceptance criteria**:
+
 - 31-day-old recordings deleted on the next run
 - 29-day-old recordings retained
 - `recording_url` nulled on the affected rows
@@ -2159,6 +2309,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Install Sentry for the Next.js app and capture user-facing errors with PII scrubbed.
 
 **Tasks**:
+
 - Install `@sentry/nextjs`
 - Configure DSN via env var
 - Set sample rates: 100% for errors, 10% for performance traces
@@ -2168,6 +2319,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Set release tag from the Vercel deployment SHA
 
 **Acceptance criteria**:
+
 - A thrown error in the portal lands in Sentry within 30s
 - The error has `tenant_id` and a hashed `user_id`
 - No raw email, phone, or auth token visible in any captured event
@@ -2185,6 +2337,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Install Sentry for the FastAPI app and capture backend errors with the same PII discipline.
 
 **Tasks**:
+
 - Install `sentry-sdk[fastapi]`
 - Configure DSN via env var
 - Set sample rates: 100% errors, 5% performance traces
@@ -2194,6 +2347,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Set release tag from the Render deployment SHA
 
 **Acceptance criteria**:
+
 - A backend exception lands in Sentry within 30s
 - Provider errors (Deepgram timeout, DeepSeek 429) caught with the right context
 - No PII visible (caller numbers null, embeddings stripped)
@@ -2211,6 +2365,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Centralize the PII scrubbing logic used by 5.16 and 5.17 into a shared module.
 
 **Tasks**:
+
 - Build a `pii_scrub.py` (backend) and `piiScrub.ts` (frontend) with identical rules
 - Rules: redact phone numbers (E.164 and Indian formats), emails (except `@yourdomain.ai`), Aadhaar-shaped IDs, PAN-shaped IDs, full names matched against a small known-customer list, credit card numbers (Luhn-passing 13–16 digit strings)
 - Replace matches with placeholder tokens (`[PHONE]`, `[EMAIL]`, etc.) so the structure of errors is still debuggable
@@ -2218,6 +2373,7 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 - Unit test with sample dirty payloads to verify nothing leaks
 
 **Acceptance criteria**:
+
 - Test fixtures with phones, emails, Aadhaar, PAN, cards all get redacted
 - Whitelisted internal emails (`@yourdomain.ai`) NOT redacted (so we can debug our own staff)
 - Both frontend and backend use the same rules (verified via shared test fixtures)
@@ -2234,20 +2390,22 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: Document and tool the manual onboarding flow for the first 3-5 paying tenants (clinics or restaurants in Delhi).
 
 **Tasks**:
+
 - Write a runbook in `/docs/onboarding.md`: prospect call → demo → tenant creation (3.06) → number purchase → agent prompt drafting → KB upload → smoke call → go live
-- Build an "Onboarding Checklist" page in the internal dashboard with checkboxes synced to a `tenant_onboarding` table (one row per tenant: prompt_drafted, kb_uploaded, smoke_call_passed, escalation_configured, billing_set, gone_live, gone_live_at)
+- Build an "Onboarding Checklist" page in the internal dashboard with checkboxes synced to a `tenant_onboarding` table (one row per tenant: prompt_drafted, kb_uploaded, smoke_call_passed, escalation_configured, payment_recorded, gone_live, gone_live_at)
 - Add a per-tenant note field (markdown) so internal staff can leave context
-- Add a "Go live" button that flips tenant status to `active`
+- Add a "Go live" button that flips tenant status to `active` and confirms `paid_until` is set (5.03/5.05)
 - Send the tenant a welcome email via Resend after "Go live"
 
 **Acceptance criteria**:
+
 - Runbook readable end-to-end in under 10 minutes
 - Checklist persists state across internal staff sessions
-- "Go live" only enables when all required checkboxes are ticked
+- "Go live" only enables when all required checkboxes are ticked (including payment recorded)
 - Welcome email lands within 60s, with the portal login link
 - First test tenant onboarded fully through this workflow
 
-**Dependencies**: 3.05, 3.06, 4.15, 5.03
+**Dependencies**: 3.05, 3.06, 4.15, 5.04, 5.05
 
 **Estimate**: 3h
 
@@ -2258,21 +2416,24 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 **Description**: End-to-end testing of the portal, billing, compliance, and onboarding flow before declaring v1 MVP done.
 
 **Tasks**:
-- Onboard a fake "Restaurant X" tenant fully through 5.19 (the checklist + runbook)
+
+- Submit the landing lead form → verify a `leads` row + team notification email (5.02)
+- Onboard a fake "Restaurant X" tenant fully through 5.19 (the checklist + runbook): provision + login + `paid_until` set (5.04/5.05)
 - Tenant logs into the portal — verify dashboard, calls list, call detail, billing page all render
-- Tenant subscribes via Checkout in test mode → webhook lands → subscription_status flips to active
-- Generate 350 minutes of test calls → daily aggregation reports 50 minutes overage to Stripe
+- Generate 350 minutes of test calls → daily usage aggregation (5.06) records 50 overage minutes for invoicing
+- Let `paid_until` lapse → expiry job pauses the tenant (agents stop); record a payment (5.05) → tenant re-activates
 - Tenant requests data export — receives the email, downloads ZIP, verifies contents
-- Tenant requests deletion — verifies all data wiped, Stripe canceled, audit trail intact
+- Tenant requests deletion — verifies all data wiped, billing access stopped (`paid_until` cleared, churned), audit trail intact
 - Trigger a frontend error and a backend error — verify Sentry capture with PII scrubbed
 - Run the 30-day retention job against a seeded old call — verifies audio deletion + transcript retention
 - Run the cross-tenant smoke test from 1.05 one more time end-to-end
 - Compute total Phase 5 Deepgram + Twilio + DeepSeek + OpenAI cost from the test run and confirm against `cost_total_usd` aggregation
 
 **Acceptance criteria**:
+
 - End-to-end onboarding works in under 30 minutes for a new tenant
 - Portal pages all load under 1s
-- Stripe test subscription + overage reporting works correctly
+- Manual onboarding + access window (`paid_until` expiry/renewal) + usage aggregation work correctly
 - DPDP export + delete both verified
 - Sentry captures errors with no PII leakage
 - 30-day retention deletes only the right files
@@ -2286,4 +2447,4 @@ Self-serve readiness week. Tenants can see their own data in the portal. Stripe 
 
 ---
 
-*End of tickets.md*
+_End of tickets.md_

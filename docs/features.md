@@ -86,13 +86,13 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Dashboard with call volume chart** — bar chart of last 7 days, today's total, recent calls preview
 - **Call logs list** — paginated table with date filter and outcome filter
 - **Call detail view** — full per-turn transcript and embedded audio player
-- **Billing page** — current plan card, current usage card, next invoice estimate
-- **Stripe Customer Portal link** — opens Stripe-hosted page for plan and payment method changes
+- **Billing page (read-only)** — current plan card, usage card, and access window ("valid until" date)
+- **Renew via contact** — "Contact us to renew" (lead form / email); no self-serve payment in v1
 
 ### Landing and marketing
 
-- **Marketing landing page** — hero, features section, social proof, CTA to demo or signup
-- **Pricing page** — three subscription tiers with comparison table
+- **Marketing landing page** — hero, features section, social proof, CTAs that open the lead-capture dialog (book a demo / contact sales) — paid-only, no free trial, no self-serve signup in v1
+- **Pricing page** — three plan tiers with comparison table (informational; payment is arranged with the team)
 - **Live demo call number** — published Twilio number that calls a demo tenant agent so prospects can try
 - **Lead capture form** — drops captured leads into Resend email to the sales team
 
@@ -101,15 +101,15 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Sales-led configuration** — entire onboarding handled by the internal team through the dashboard in v1
 - **Lead capture to sales notification** — form submissions trigger an email and a Sentry breadcrumb
 
-### Billing
+### Billing & onboarding payments (v1: manual, no gateway)
 
-- **Stripe customer per tenant** — created automatically on tenant insert via webhook listener
-- **Stripe Checkout for subscriptions** — embedded or redirect flow for new subscriptions
-- **Three subscription plans** — Starter, Pro, and Custom (sales-led) defined in the Stripe dashboard
-- **Metered overage billing** — daily aggregation of `billing_events` minutes pushed as Stripe usage records
-- **Stripe Customer Portal** — self-serve plan changes and payment method updates
-- **Invoice generation** — automatic via Stripe with PDF available in customer email
-- **UPI / RuPay support** — Indian payment methods enabled in Stripe India dashboard
+- **Sales-led onboarding** — after a lead and an email conversation, the team provisions the tenant and issues a login valid for the paid period
+- **Manual / offline payment** — UPI / bank transfer agreed over email and recorded by the team; no payment gateway in v1
+- **Time-bound access (`paid_until`)** — agents answer only while the paid period is active; an expiry job pauses lapsed tenants until renewal
+- **Recorded payments** — the team logs each payment (amount, method, period, reference), which extends `paid_until` and writes a `billing_events` row
+- **Usage rollup** — daily aggregation of minutes + cost into `billing_events` for the portal usage card and manual invoicing
+- **Pricing plans (config)** — Starter, Pro, and Custom defined in `pricing_plans` for the pricing page + invoicing reference
+- **Payment gateway** — deferred; a real gateway (Razorpay / Cashfree, India-friendly) is planned for a later phase
 
 ### Observability
 
@@ -186,7 +186,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Global metrics dashboard** — today's call volume, active tenants, top errors across all tenants
 - **Prompt template management** — CRUD on the starter templates accessible from the dashboard
 - **Tenant suspension and unsuspension** — cuts off webhook routing without deleting data
-- **Refund issuance** — Stripe API call from the dashboard with audit log entry
+- **Refund issuance** — via the payment gateway once integrated (manual refund in v1), with audit log entry
 
 ### Client portal
 
@@ -197,7 +197,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 - **Tool whitelist editor** — toggle which tools the agent has access to
 - **Phone number management** — buy additional numbers, release unused ones
 - **FAQ editor** — lightweight knowledge-base path for tenants who don't have PDFs
-- **Invoice download as PDF** — Stripe-generated invoice download
+- **Invoice download as PDF** — manual invoice in v1; gateway-generated once a payment gateway is integrated
 - **Test call simulator** — "Call my phone" button triggers a Twilio call from the configured agent to the user's number
 
 ### Landing and marketing
@@ -220,10 +220,12 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 ### Billing
 
-- **Failed payment retry and dunning** — Stripe Smart Retries handles transient failures
-- **Refunds (internal-team initiated)** — Stripe API call from internal dashboard with audit log entry
-- **Annual billing discount** — Stripe coupon applied to yearly plans
-- **Free trial period** — Stripe trial config for new signups
+- **Payment gateway integration** — Razorpay / Cashfree (India-friendly) for self-serve subscriptions, replacing v1 manual payment
+- **Failed payment retry and dunning** — handled by the payment gateway once integrated
+- **Refunds (internal-team initiated)** — via the payment gateway once integrated, with audit log entry
+- **Annual billing discount** — coupon / discount applied via the gateway or the manual invoice
+
+> **No free trial** — the product is paid-only. There is no trial tier; access begins after payment and is bounded by `paid_until`.
 
 ### Observability
 
@@ -293,7 +295,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 
 ### Billing
 
-- **INR + USD multi-currency** — Stripe handles, UI work for the portal to display the right currency
+- **INR + USD multi-currency** — handled by the payment gateway once integrated; portal UI shows the right currency
 
 ### Observability
 
@@ -371,7 +373,7 @@ See `roadmap.md` for timing and strategic context, `mvp-planning.md` for v1 exec
 ### Billing
 
 - **Per-line pricing** — charge per active phone number rather than per-tenant flat rate
-- **Enterprise custom contracts** — manual contract terms with Stripe Billing for invoicing
+- **Enterprise custom contracts** — manual contract terms with manual / gateway invoicing
 
 ### Observability
 
@@ -420,7 +422,7 @@ Only built when a paying customer explicitly demands and commits.
 
 ### Business brain — tools
 
-- **Razorpay / Stripe voice payments** — collect payment info via voice, PCI scope expansion
+- **Voice payments (Razorpay)** — collect payment info via voice, PCI scope expansion
 - **Tool marketplace** — third-party developers publish tools for tenants to install
 
 ### Workflow engine
@@ -460,4 +462,4 @@ Only built when a paying customer explicitly demands and commits.
 
 ---
 
-*End of features.md*
+_End of features.md_

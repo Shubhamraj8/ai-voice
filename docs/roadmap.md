@@ -77,7 +77,7 @@ The sales motion is fully team-driven in v1. The internal dashboard is the confi
 
 ### Goals
 
-- First paying customers on Indian Stripe subscriptions
+- First paying customers onboarded by the team (sales-led, manual/offline payment)
 - Sub-1.2 second per-turn latency on the 90th percentile
 - Per-minute COGS at or near ~$0.024 at planned usage levels (India English)
 - Foundational architecture (provider abstraction, multi-tenancy, RLS) in place for later versions
@@ -92,8 +92,8 @@ Phase-by-phase breakdown is in `mvp-planning.md`. Headline items:
 - Internal dashboard for tenant creation, agent configuration, knowledge upload, call review, audit log
 - PDF-based knowledge base with pgvector retrieval
 - Three core tools: transferToHuman, sendSms, escalateToOwner
-- Read-only client portal (dashboard, call logs, billing)
-- Stripe subscriptions plus metered overage billing
+- Read-only client portal (dashboard, call logs, billing/usage)
+- Sales-led onboarding: lead capture → email → manual/offline payment → time-bound access (`paid_until`); usage rollup for manual invoicing (payment gateway deferred)
 - DPDP Act compliance basics (data residency, consent disclosure, data export and deletion)
 - Sentry observability with PII scrubbing
 
@@ -131,7 +131,8 @@ The second priority is booking. Most v1 customers will be clinics or restaurants
 - Interactive client portal — prompt editing, voice selection from the Deepgram Aura catalog, tool whitelist editing, phone number management
 - Test call simulator
 - PostHog product analytics, eval pipeline (daily replay), sentiment analysis per turn
-- Annual billing, refunds, free trial period, dunning
+- Self-serve onboarding + payment gateway (Razorpay / Cashfree, India-friendly) — replaces v1's manual onboarding + offline payment
+- Annual billing, refunds, dunning (via the gateway) — no free trial; the product stays paid-only
 - Krisp noise cancellation
 - Help center / docs site
 
@@ -222,7 +223,7 @@ The compliance work is the long pole: SOC 2 Type II audit takes 3–6 months and
 - Number porting (BYO) as a paid service tier
 - Spanish, French language support
 - Per-line pricing model option
-- Enterprise custom contracts via Stripe Billing
+- Enterprise custom contracts via manual / gateway invoicing
 - Distributed tracing (OpenTelemetry)
 - Penetration testing engagement
 - Granular role-based permissions
@@ -284,4 +285,4 @@ HIPAA is in v3 because a US clinic prospect should drive the SOC 2 audit and BAA
 
 ---
 
-*End of roadmap.md*
+_End of roadmap.md_

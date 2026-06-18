@@ -22,14 +22,14 @@ This document defines what gets built each week, the technical approach for each
 
 ## Phase overview
 
-| Phase | Week | Focus | Milestone |
-|---|---|---|---|
-| 1 | 1 | Foundation | Both apps deployed, auth working, schema and RLS in place |
-| 2 | 2 | Voice pipeline | First end-to-end AI call works from a real phone |
-| 3 | 3 | Internal dashboard + multi-tenancy | Team configures tenants via dashboard, calls route per tenant |
-| 4 | 4 | Business brain | RAG live, tools live, agents answer knowledge-base questions and take actions |
-| 5 | 5 | Client portal + billing | Stripe live, read-only portal live, first customers onboarded |
-| 6 | 6 | Buffer | Stabilization, additional customers, demo content |
+| Phase | Week | Focus                              | Milestone                                                                               |
+| ----- | ---- | ---------------------------------- | --------------------------------------------------------------------------------------- |
+| 1     | 1    | Foundation                         | Both apps deployed, auth working, schema and RLS in place                               |
+| 2     | 2    | Voice pipeline                     | First end-to-end AI call works from a real phone                                        |
+| 3     | 3    | Internal dashboard + multi-tenancy | Team configures tenants via dashboard, calls route per tenant                           |
+| 4     | 4    | Business brain                     | RAG live, tools live, agents answer knowledge-base questions and take actions           |
+| 5     | 5    | Client portal + onboarding         | Sales-led onboarding + manual payment, read-only portal live, first customers onboarded |
+| 6     | 6    | Buffer                             | Stabilization, additional customers, demo content                                       |
 
 ---
 
@@ -40,7 +40,7 @@ Done over a weekend before Phase 1 begins. Not counted in the five weeks.
 ### Accounts and verification
 
 - Vercel, Render, Supabase, Upstash, Sentry, Resend
-- Stripe in live mode with India payment methods enabled (UPI, RuPay, NetBanking)
+- Payment: v1 uses manual/offline payment (UPI / bank transfer) — no gateway account needed; a real gateway (Razorpay / Cashfree) is deferred
 - Twilio account with India local number provisioning (verification can take 1–2 business days)
 - Deepgram (covers both STT and TTS — $200 starter credit, no expiry, no credit card required)
 - DeepSeek (5M-token starter credit, 30-day expiry)
@@ -353,30 +353,22 @@ An agent given a PDF knowledge base can correctly answer KB-grounded questions d
 
 ## Phase 5 — Client portal + billing
 
-**Week 5.** Stripe is live. Client portal is read-only. First paying customers are onboarded by the team.
+**Week 5.** Onboarding is sales-led with manual/offline payment (no gateway). Client portal is read-only. First paying customers are onboarded by the team.
 
-### Stripe integration
+### Sales-led onboarding (no payment gateway)
 
-- Stripe customer created on tenant create (via webhook listener on tenant insert)
-- Three subscription products created in Stripe dashboard:
-  - Starter
-  - Pro
-  - Custom (sales-led)
-- Stripe Checkout session generation endpoint
-- Stripe Customer Portal link generation for plan and payment method changes
-- Webhook handlers for:
-  - `customer.subscription.created` — set tenant plan, activate
-  - `customer.subscription.updated` — plan changes
-  - `customer.subscription.deleted` — suspend tenant
-  - `invoice.payment_succeeded` — confirm billing event
-  - `invoice.payment_failed` — flag for follow-up
+- Landing-page CTAs open a lead-capture dialog → stores a `leads` row + emails the team (Resend)
+- The team agrees a plan and takes payment **offline** (UPI / bank transfer) over email
+- After payment, the team provisions the tenant (3.06), creates the client's portal login, and sets `paid_until` to the paid-through date
+- A "record payment" action logs the payment and extends `paid_until`
+- **Paid-only — no free trial**; access begins only after payment
+- No payment gateway in v1 — a real gateway (Razorpay / Cashfree, India-friendly) is deferred
 
-### Metered overage billing
+### Time-bound access + usage
 
-- `billing_events` rows created per call with units (minutes) and cost_usd
-- Daily aggregation job sums per-tenant overage minutes (above plan quota)
-- Aggregated usage pushed to Stripe as usage records via the metered subscription item
-- Stripe handles proration and invoicing at the end of the billing cycle
+- `tenants.paid_until` governs access: agents answer only while the paid period is active
+- An expiry job pauses tenants past `paid_until` (call routing already gates on active status); recording a payment re-activates them
+- `billing_events` rows: one per recorded payment, plus a daily per-tenant usage rollup (minutes + cost from `calls`) for the portal usage card and manual invoicing
 
 ### Client portal
 
@@ -385,7 +377,7 @@ Pages built (read-only in v1):
 - Dashboard — header with current plan and usage, call volume chart for last 7 days, recent calls list
 - Calls list — paginated table with date filter, outcome filter, agent filter
 - Call detail — header with call metadata, full per-turn transcript, embedded audio player for the recording
-- Billing — current plan card, current usage card, next invoice estimate, "Manage Billing" button that opens Stripe Customer Portal
+- Billing (read-only) — current plan card, usage card, access window ("valid until" date), and a "Contact us to renew" action (no self-serve payment in v1)
 
 ### Compliance endpoints
 
@@ -412,7 +404,7 @@ Pages built (read-only in v1):
 
 ### Milestone
 
-First paying customers on active Stripe subscriptions, each taking real calls within 48 hours of activation.
+First paying customers onboarded manually (offline payment, access window enforced via `paid_until`), each taking real calls within 48 hours of activation.
 
 ---
 
@@ -463,4 +455,4 @@ Why phases are ordered this way:
 
 ---
 
-*End of mvp-planning.md*
+_End of mvp-planning.md_

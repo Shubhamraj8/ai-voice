@@ -2,12 +2,12 @@
 
 > Multi-vertical, multi-market AI voice agent platform. Built so STT, TTS, and LLM swap per tenant via configuration — same code serves an English clinic in Delhi, a Hindi-speaking restaurant in Jaipur, and a HIPAA-eligible dental practice in Austin. One generic agent design, two onboarding paths, four target markets, shipped one at a time.
 
-| | |
-|---|---|
-| Version | 1.2 (Deepgram-standardized voice stack) |
-| Status | Pre-implementation |
-| Phase 1 ship target | India English market, generic agent |
-| Owner | Founder + small team |
+|                     |                                         |
+| ------------------- | --------------------------------------- |
+| Version             | 1.2 (Deepgram-standardized voice stack) |
+| Status              | Pre-implementation                      |
+| Phase 1 ship target | India English market, generic agent     |
+| Owner               | Founder + small team                    |
 
 ---
 
@@ -48,7 +48,7 @@
 - One market wired: **India English** with the Deepgram voice stack (Deepgram Nova-3 Monolingual + Deepgram Aura-1 + DeepSeek V4 Flash native).
 - One agent type: generic, configurable system prompt and tool whitelist.
 - Five **starter prompts** at onboarding (receptionist, restaurant, hotel, retail, generic support) — these are prompt presets, not separate state machines.
-- Both onboarding flows live: internal dashboard for sales-led, client portal for self-serve.
+- v1 onboarding is **sales-led only** (paid-only, no free trial): the internal team captures leads, takes payment over email, then provisions tenants and issues logins. The client portal is read-only. Self-serve signup + the onboarding wizard are deferred to v1.5.
 - Provider abstraction is in the codebase; only one concrete implementation per role is wired up.
 
 ### Architected but not shipped in v1
@@ -143,16 +143,16 @@ A practical consequence of consolidating STT and TTS onto Deepgram in v1: one ve
 
 ### Frontend
 
-| Component | Choice | Why |
-|---|---|---|
-| Framework | Next.js 14 (App Router) | First-class Vercel integration, server components, large hiring pool |
-| Language | TypeScript | Type safety across FE/BE boundary |
-| Styling | Tailwind CSS | No runtime, fast iteration |
-| Components | shadcn/ui | Copy-paste components, no runtime dependency |
-| State / data | TanStack Query | Industry standard for async data |
-| Auth client | Supabase Auth (`@supabase/ssr`) | One auth provider, FE + BE |
-| Billing UI | Stripe Elements | Embedded checkout |
-| Forms | react-hook-form + zod | Type-safe forms, shared schemas |
+| Component    | Choice                          | Why                                                                  |
+| ------------ | ------------------------------- | -------------------------------------------------------------------- |
+| Framework    | Next.js 14 (App Router)         | First-class Vercel integration, server components, large hiring pool |
+| Language     | TypeScript                      | Type safety across FE/BE boundary                                    |
+| Styling      | Tailwind CSS                    | No runtime, fast iteration                                           |
+| Components   | shadcn/ui                       | Copy-paste components, no runtime dependency                         |
+| State / data | TanStack Query                  | Industry standard for async data                                     |
+| Auth client  | Supabase Auth (`@supabase/ssr`) | One auth provider, FE + BE                                           |
+| Onboarding   | Lead-capture dialog + email     | Sales-led, paid-only (no free trial); no self-serve checkout in v1   |
+| Forms        | react-hook-form + zod           | Type-safe forms, shared schemas                                      |
 
 One Next.js project, three route groups:
 
@@ -160,49 +160,48 @@ One Next.js project, three route groups:
 app/
 ├── (marketing)/        # landing.example.com
 ├── (internal)/         # internal.example.com — team logins, sales-led config
-└── (portal)/           # app.example.com — client self-serve
+└── (portal)/           # app.example.com — client read-only portal (login issued after manual onboarding)
 ```
 
 ### Backend
 
-| Component | Choice | Why |
-|---|---|---|
-| Language | Python 3.11 | Pipecat is Python-only; non-negotiable |
-| Web framework | FastAPI | Async-first, websocket-native, Pydantic |
-| Voice orchestration | Pipecat (self-hosted) | OSS framework, avoids Pipecat Cloud per-min fee |
-| Validation | Pydantic v2 | Shared models for API, tool schemas, DB |
-| HTTP client | httpx (async) | Async-native for external API calls |
-| Job scheduling | APScheduler in-process | No separate worker fleet for v1 |
-| Telephony SDK | twilio-python | Official |
-| DB client | asyncpg + supabase-py | asyncpg hot path, supabase-py for storage/auth |
-| LLM client | openai SDK (compatible) | DeepSeek, Together, OpenAI all share the API |
-| Voice SDKs | `deepgram-sdk` (Python) | Official Deepgram SDK for STT streaming + TTS streaming |
+| Component           | Choice                  | Why                                                     |
+| ------------------- | ----------------------- | ------------------------------------------------------- |
+| Language            | Python 3.11             | Pipecat is Python-only; non-negotiable                  |
+| Web framework       | FastAPI                 | Async-first, websocket-native, Pydantic                 |
+| Voice orchestration | Pipecat (self-hosted)   | OSS framework, avoids Pipecat Cloud per-min fee         |
+| Validation          | Pydantic v2             | Shared models for API, tool schemas, DB                 |
+| HTTP client         | httpx (async)           | Async-native for external API calls                     |
+| Job scheduling      | APScheduler in-process  | No separate worker fleet for v1                         |
+| Telephony SDK       | twilio-python           | Official                                                |
+| DB client           | asyncpg + supabase-py   | asyncpg hot path, supabase-py for storage/auth          |
+| LLM client          | openai SDK (compatible) | DeepSeek, Together, OpenAI all share the API            |
+| Voice SDKs          | `deepgram-sdk` (Python) | Official Deepgram SDK for STT streaming + TTS streaming |
 
 ### Data
 
-| Component | Choice | Replaces |
-|---|---|---|
-| Primary DB | Supabase Postgres 15 | Separate DB host |
-| Vector DB | pgvector (in Supabase) | Pinecone / Qdrant Cloud |
-| Auth | Supabase Auth | Auth0 / Clerk |
-| File storage | Supabase Storage | S3 / Cloudinary |
-| Cache / session | Upstash Redis | Self-hosted Redis |
+| Component       | Choice                 | Replaces                |
+| --------------- | ---------------------- | ----------------------- |
+| Primary DB      | Supabase Postgres 15   | Separate DB host        |
+| Vector DB       | pgvector (in Supabase) | Pinecone / Qdrant Cloud |
+| Auth            | Supabase Auth          | Auth0 / Clerk           |
+| File storage    | Supabase Storage       | S3 / Cloudinary         |
+| Cache / session | Upstash Redis          | Self-hosted Redis       |
 
 Five paid services collapsed into two managed offerings with generous starter allowances.
 
 ### External APIs (variable cost only)
 
-| Service | Use |
-|---|---|
-| Twilio | PSTN telephony, phone numbers, HIPAA-eligible variant |
-| Deepgram | STT (Nova-3 family) and TTS (Aura family) — single vendor for both voice layers |
-| Sarvam | STT and TTS for Indian languages (Hindi/Hinglish in v2) |
-| OpenAI | Embeddings (`text-embedding-3-small`), optional TTS fallback for global markets |
-| DeepSeek (native or Together) | LLM (chosen per tenant) |
-| Stripe | Subscriptions + metered billing |
-| Resend | Transactional email |
-| Sentry | Error tracking |
-| PostHog | Product analytics |
+| Service                       | Use                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Twilio                        | PSTN telephony, phone numbers, HIPAA-eligible variant                           |
+| Deepgram                      | STT (Nova-3 family) and TTS (Aura family) — single vendor for both voice layers |
+| Sarvam                        | STT and TTS for Indian languages (Hindi/Hinglish in v2)                         |
+| OpenAI                        | Embeddings (`text-embedding-3-small`), optional TTS fallback for global markets |
+| DeepSeek (native or Together) | LLM (chosen per tenant)                                                         |
+| Resend                        | Transactional email (lead notifications, welcome, escalations)                  |
+| Sentry                        | Error tracking                                                                  |
+| PostHog                       | Product analytics                                                               |
 
 Deepgram offers a **$200 free starter credit with no expiry and no credit card required**, sufficient for the entire build phase plus initial customer testing. The team moves to paid pay-as-you-go after the first paying customer goes live.
 
@@ -254,12 +253,12 @@ class LLMProvider(Protocol):
 
 ### Concrete implementations per market
 
-| Market | STT | TTS | LLM | Telephony |
-|---|---|---|---|---|
-| **India English** (v1 ship) | `DeepgramSTT` (Nova-3 Monolingual) | `DeepgramTTS` (Aura-1) | `DeepSeekNativeLLM` | Twilio standard |
-| **India Hindi** (v2) | `SarvamSTT` | `SarvamTTS` | `DeepSeekNativeLLM` or `SarvamLLM` | Twilio standard |
-| **US HIPAA** (v3) | `DeepgramSTTEnterprise` (BAA) | `DeepgramTTSEnterprise` (BAA) | `TogetherDeepSeekLLM` | Twilio HIPAA |
-| **Global English** | `DeepgramSTT` (Nova-3 Monolingual or Multilingual) | `DeepgramTTS` (Aura-1/Aura-2) | `DeepSeekNativeLLM` | Twilio standard |
+| Market                      | STT                                                | TTS                           | LLM                                | Telephony       |
+| --------------------------- | -------------------------------------------------- | ----------------------------- | ---------------------------------- | --------------- |
+| **India English** (v1 ship) | `DeepgramSTT` (Nova-3 Monolingual)                 | `DeepgramTTS` (Aura-1)        | `DeepSeekNativeLLM`                | Twilio standard |
+| **India Hindi** (v2)        | `SarvamSTT`                                        | `SarvamTTS`                   | `DeepSeekNativeLLM` or `SarvamLLM` | Twilio standard |
+| **US HIPAA** (v3)           | `DeepgramSTTEnterprise` (BAA)                      | `DeepgramTTSEnterprise` (BAA) | `TogetherDeepSeekLLM`              | Twilio HIPAA    |
+| **Global English**          | `DeepgramSTT` (Nova-3 Monolingual or Multilingual) | `DeepgramTTS` (Aura-1/Aura-2) | `DeepSeekNativeLLM`                | Twilio standard |
 
 ### Resolving the right implementations at runtime
 
@@ -388,13 +387,14 @@ CREATE TABLE tenants (
   language        text NOT NULL DEFAULT 'en',  -- ISO 639-1
   timezone        text NOT NULL DEFAULT 'Asia/Kolkata',
   plan            text NOT NULL DEFAULT 'starter',
+  paid_until      timestamptz,  -- access window; agents answer only while now() < paid_until (v1 manual billing)
   provider_config jsonb NOT NULL DEFAULT '{
     "stt": "deepgram",
     "tts": "deepgram",
     "llm": "deepseek_native"
   }'::jsonb,
-  onboarding_mode text NOT NULL DEFAULT 'self_serve',
-  -- 'sales_led'|'self_serve'|'hybrid'
+  onboarding_mode text NOT NULL DEFAULT 'sales_led',
+  -- 'sales_led'|'self_serve'|'hybrid' — v1 is sales-led (manual onboarding)
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 ```
@@ -530,15 +530,30 @@ CREATE TABLE call_messages (
   created_at      timestamptz DEFAULT now()
 );
 
--- Billing meter
+-- Sales leads from landing-page CTAs (v1 sales-led onboarding)
+CREATE TABLE leads (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_name  text,
+  contact_name   text,
+  contact_email  text NOT NULL,
+  contact_phone  text,
+  message        text,
+  source         text,                    -- which CTA / page
+  status         text NOT NULL DEFAULT 'new', -- 'new'|'contacted'|'converted'|'lost'
+  created_at     timestamptz DEFAULT now()
+);
+
+-- Billing / usage ledger. v1 has no payment gateway: payments are recorded
+-- manually and usage is rolled up daily for the portal + manual invoicing.
 CREATE TABLE billing_events (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       uuid NOT NULL REFERENCES tenants(id),
   call_id         uuid REFERENCES calls(id),
-  event_type      text NOT NULL,          -- 'call_minute'|'phone_number_month'
-  units           numeric(10,4) NOT NULL,
+  event_type      text NOT NULL,          -- 'payment_recorded'|'usage_reported'|'access_extended'|'plan_changed'
+  units           numeric(10,4),          -- minutes for usage rows
+  amount_inr      numeric(10,2),          -- for payment rows
   cost_usd        numeric(10,5),
-  billed          boolean DEFAULT false,
+  metadata_json   jsonb,
   created_at      timestamptz DEFAULT now()
 );
 
@@ -650,14 +665,14 @@ Tool whitelisting is per-agent: `agents.tools` is a Postgres text array of permi
 
 V1 tool catalog:
 
-| Tool | Backed by |
-|---|---|
+| Tool                | Backed by                           |
+| ------------------- | ----------------------------------- |
 | `checkAvailability` | Google Calendar API or stored hours |
-| `bookAppointment` | Same, write path |
-| `lookupOrder` | Tenant-configured CRM webhook |
-| `transferToHuman` | Twilio dial verb |
-| `sendSms` | Twilio Messaging |
-| `escalateToOwner` | Resend transactional email |
+| `bookAppointment`   | Same, write path                    |
+| `lookupOrder`       | Tenant-configured CRM webhook       |
+| `transferToHuman`   | Twilio dial verb                    |
+| `sendSms`           | Twilio Messaging                    |
+| `escalateToOwner`   | Resend transactional email          |
 
 ---
 
@@ -708,13 +723,13 @@ Pipecat Flows is the official state-machine layer for Pipecat pipelines. The dec
 
 Five prompts ship as starter templates in the onboarding flow:
 
-| Starter | Default tools | Typical buyer |
-|---|---|---|
-| Receptionist | checkAvailability, bookAppointment, transferToHuman | Clinics, salons, dentists |
-| Restaurant | checkAvailability, bookAppointment | Restaurants, cafes |
-| Hotel | checkAvailability, transferToHuman, sendSms | Hotels, guesthouses |
-| Retail | lookupOrder, transferToHuman | Marts, stores |
-| Generic support | escalateToOwner, transferToHuman, sendSms | Anyone else |
+| Starter         | Default tools                                       | Typical buyer             |
+| --------------- | --------------------------------------------------- | ------------------------- |
+| Receptionist    | checkAvailability, bookAppointment, transferToHuman | Clinics, salons, dentists |
+| Restaurant      | checkAvailability, bookAppointment                  | Restaurants, cafes        |
+| Hotel           | checkAvailability, transferToHuman, sendSms         | Hotels, guesthouses       |
+| Retail          | lookupOrder, transferToHuman                        | Marts, stores             |
+| Generic support | escalateToOwner, transferToHuman, sendSms           | Anyone else               |
 
 A client picks one at onboarding. Sales-led or self-serve can edit the assembled prompt afterwards.
 
@@ -776,12 +791,12 @@ sequenceDiagram
 
 ### Performance budgets
 
-| Metric | Target | Hard ceiling |
-|---|---|---|
-| Time to first audio | 800ms | 2s |
-| Per-turn round-trip | 700ms | 1.2s |
-| Concurrent calls per backend instance | 20 | 40 |
-| LLM prompt cache hit rate | ≥80% | — |
+| Metric                                | Target | Hard ceiling |
+| ------------------------------------- | ------ | ------------ |
+| Time to first audio                   | 800ms  | 2s           |
+| Per-turn round-trip                   | 700ms  | 1.2s         |
+| Concurrent calls per backend instance | 20     | 40           |
+| LLM prompt cache hit rate             | ≥80%   | —            |
 
 If per-turn latency exceeds the ceiling consistently, the first thing to check is the LLM provider's queue. The escape hatch is per-tenant: switch that tenant's `provider_config.llm` to `together_deepseek` or `openai_gpt5_mini` for predictable latency, accepting higher per-minute cost.
 
@@ -811,7 +826,9 @@ flowchart LR
 
 Audit log captures every config change so the client can see what the sales rep set up.
 
-### Path B: Self-serve (client portal)
+### Path B: Self-serve (client portal) — deferred to v1.5
+
+> **Not in v1.** v1 is sales-led + paid-only (no free trial); the self-serve signup + wizard below ship in v1.5. Kept here as the target design.
 
 For SMBs who want to try fast.
 
@@ -831,7 +848,7 @@ Target: 30 minutes from signup to first live test call, fully self-serve. Funnel
 
 ### Hybrid (sales onboards first ~20, then self-serve)
 
-Practically: ship both. Use the sales path personally for the first 20 customers to learn where they get stuck. Use what you learn to harden the self-serve wizard. After 20, the default becomes self-serve with optional sales-assistance for higher-tier plans.
+Practically: **v1 ships the sales path only.** Use it personally for the first ~20 customers to learn where they get stuck, then harden the self-serve wizard in v1.5. After that, the default becomes self-serve with optional sales-assistance for higher-tier plans.
 
 ### Internal team capabilities
 
@@ -840,7 +857,7 @@ The internal dashboard does more than tenant creation:
 - Search any tenant, view their calls, replay recordings.
 - Edit prompts, tools, provider config on a tenant's behalf (with audit log entries).
 - See real-time metrics across all tenants.
-- Issue refunds, manage billing.
+- Record payments and manage access windows (`paid_until`); invoice manually.
 - Suspend / unsuspend tenants.
 
 All actions logged.
@@ -851,11 +868,11 @@ All actions logged.
 
 ### Per-minute COGS by tier
 
-| Tier | STT | TTS | LLM | Telephony | Backend | Total |
-|---|---|---|---|---|---|---|
-| **India English** | Deepgram Nova-3 $0.0048 | Deepgram Aura-1 ~$0.0080 | DeepSeek $0.0020 | Twilio $0.0085 | $0.0010 | **~$0.024/min** |
-| **India Hindi** | Sarvam $0.0050 | Sarvam $0.0050 | DeepSeek $0.0020 | Twilio $0.0085 | $0.0010 | **~$0.022/min** |
-| **US HIPAA** | Deepgram BAA ~$0.0120 | Deepgram BAA ~$0.0150 | Together $0.0100 | Twilio HIPAA $0.0130 | $0.0010 | **~$0.051/min** |
+| Tier              | STT                     | TTS                      | LLM              | Telephony            | Backend | Total           |
+| ----------------- | ----------------------- | ------------------------ | ---------------- | -------------------- | ------- | --------------- |
+| **India English** | Deepgram Nova-3 $0.0048 | Deepgram Aura-1 ~$0.0080 | DeepSeek $0.0020 | Twilio $0.0085       | $0.0010 | **~$0.024/min** |
+| **India Hindi**   | Sarvam $0.0050          | Sarvam $0.0050           | DeepSeek $0.0020 | Twilio $0.0085       | $0.0010 | **~$0.022/min** |
+| **US HIPAA**      | Deepgram BAA ~$0.0120   | Deepgram BAA ~$0.0150    | Together $0.0100 | Twilio HIPAA $0.0130 | $0.0010 | **~$0.051/min** |
 
 **Notes on the cost numbers above:**
 
@@ -868,37 +885,37 @@ All actions logged.
 
 ### Suggested pricing per tier
 
-| Tier | Plan | Price | 200 min margin |
-|---|---|---|---|
-| India English | Starter | ₹2,999/mo (~$36) | 87% |
-| India English | Pro | ₹7,999/mo (~$96) | 95% |
-| India Hindi | Pro | ₹8,499/mo (~$102) | 91% |
-| US HIPAA | Pro | $349/mo | 71% |
+| Tier          | Plan    | Price             | 200 min margin |
+| ------------- | ------- | ----------------- | -------------- |
+| India English | Starter | ₹2,999/mo (~$36)  | 87%            |
+| India English | Pro     | ₹7,999/mo (~$96)  | 95%            |
+| India Hindi   | Pro     | ₹8,499/mo (~$102) | 91%            |
+| US HIPAA      | Pro     | $349/mo           | 71%            |
 
 Prices revised upward from v1.1 to preserve margin at the Deepgram cost basis. Still placeholders — validate willingness-to-pay against three to five Indian SMB prospects before locking in. The Indian Pro margin is generous on purpose; trim it down only if competitive pressure demands.
 
 ### Monthly fixed costs by scale
 
-| Stage | Clients | Calls/mo | Fixed | Variable | Total |
-|---|---|---|---|---|---|
-| Build phase | 0 | 0 | ~$0 | ~$0 (Deepgram credits) | ~$0 |
-| First 10 clients | 10 | 2,000 | $10 (numbers) | $48 | $58 |
-| 50 clients | 50 | 10,000 | $50 + $5 (Railway) | $240 | $295 |
-| 200 clients | 200 | 50,000 | $200 + $25 | $1,200 | $1,425 |
-| 500 clients | 500 | 150,000 | $500 + $100 | $3,600 | $4,200 |
+| Stage            | Clients | Calls/mo | Fixed              | Variable               | Total  |
+| ---------------- | ------- | -------- | ------------------ | ---------------------- | ------ |
+| Build phase      | 0       | 0        | ~$0                | ~$0 (Deepgram credits) | ~$0    |
+| First 10 clients | 10      | 2,000    | $10 (numbers)      | $48                    | $58    |
+| 50 clients       | 50      | 10,000   | $50 + $5 (Railway) | $240                   | $295   |
+| 200 clients      | 200     | 50,000   | $200 + $25         | $1,200                 | $1,425 |
+| 500 clients      | 500     | 150,000  | $500 + $100        | $3,600                 | $4,200 |
 
 Phone numbers at $1/month each are the only line item scaling linearly with client count. Variable spend assumes the Deepgram pay-as-you-go rate ($0.024/min average for India English); savings would be available on Deepgram's annual Growth plan once monthly spend stabilizes above ~$300.
 
 ### Where cost can spike
 
-| Risk | Trigger | Mitigation |
-|---|---|---|
-| Cache miss rate | Prompt edited frequently or dynamic per-call | Lock prompt strings to agent versions; dynamic context goes in messages, not prompt |
-| Long calls | Talkative clients average 15+ min | Soft cap at 20 min with voicemail handoff |
-| TTS over-generation | LLM verbose | "Be concise" in prompt; cap output at 150 tokens; monitor chars-per-turn |
-| Concurrency burst | Restaurant lunch rush at 50 concurrent | Stress-test autoscale path; document Deepgram concurrency ceiling (150 STT WSS, 45 TTS WSS on PAYG) |
-| Provider price increase | Vendor raises rates | Provider abstraction = swap in 1 hour |
-| Deepgram promo ends | Streaming STT rises from $0.0048 to $0.0077/min | Reassess pricing; consider Growth plan annual commit |
+| Risk                    | Trigger                                         | Mitigation                                                                                          |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Cache miss rate         | Prompt edited frequently or dynamic per-call    | Lock prompt strings to agent versions; dynamic context goes in messages, not prompt                 |
+| Long calls              | Talkative clients average 15+ min               | Soft cap at 20 min with voicemail handoff                                                           |
+| TTS over-generation     | LLM verbose                                     | "Be concise" in prompt; cap output at 150 tokens; monitor chars-per-turn                            |
+| Concurrency burst       | Restaurant lunch rush at 50 concurrent          | Stress-test autoscale path; document Deepgram concurrency ceiling (150 STT WSS, 45 TTS WSS on PAYG) |
+| Provider price increase | Vendor raises rates                             | Provider abstraction = swap in 1 hour                                                               |
+| Deepgram promo ends     | Streaming STT rises from $0.0048 to $0.0077/min | Reassess pricing; consider Growth plan annual commit                                                |
 
 The last two rows are the strategic value of §4 in dollars: when Deepgram raises a rate, the per-tenant swap is a config update.
 
@@ -963,11 +980,11 @@ Internal dashboard surfaces per tenant and globally:
 
 PostHog tracks both onboarding funnels separately:
 
-| Step | Sales-led target | Self-serve target |
-|---|---|---|
-| Demo request → sales call | 60% | n/a |
-| Tenant created → first call live | 90% | 60% |
-| First call → kept 7+ days | 80% | 40% |
+| Step                             | Sales-led target | Self-serve target |
+| -------------------------------- | ---------------- | ----------------- |
+| Demo request → sales call        | 60%              | n/a               |
+| Tenant created → first call live | 90%              | 60%               |
+| First call → kept 7+ days        | 80%              | 40%               |
 
 ### Eval pipeline
 
@@ -995,15 +1012,15 @@ Flagged calls queue in the internal dashboard.
 
 ## 15. Scaling triggers
 
-| Service | Migrate when… | To |
-|---|---|---|
-| Supabase starter | DB > 400MB or > 50K calls/month | Supabase Pro ($25/mo) |
-| Render starter | Concurrent calls > 15 or p95 latency > 1s | Render Standard ($7/mo) or Railway pay-as-you-go |
-| Upstash starter | > 10K Redis commands/day | Upstash pay-as-you-go (~$0.20 per 100K commands) |
-| Deepgram PAYG | Monthly Deepgram spend > $300 | Deepgram Growth annual plan (up to 20% off) |
-| Deepgram STT concurrency | Concurrent STT WSS > 120 | Deepgram Growth (225 WSS) or Enterprise |
-| Deepgram TTS concurrency | Concurrent TTS WSS > 40 | Deepgram Growth (60 WSS) or Enterprise |
-| DeepSeek native | Monthly LLM spend > $300 | Self-host on Modal or GPU VPS |
+| Service                  | Migrate when…                             | To                                               |
+| ------------------------ | ----------------------------------------- | ------------------------------------------------ |
+| Supabase starter         | DB > 400MB or > 50K calls/month           | Supabase Pro ($25/mo)                            |
+| Render starter           | Concurrent calls > 15 or p95 latency > 1s | Render Standard ($7/mo) or Railway pay-as-you-go |
+| Upstash starter          | > 10K Redis commands/day                  | Upstash pay-as-you-go (~$0.20 per 100K commands) |
+| Deepgram PAYG            | Monthly Deepgram spend > $300             | Deepgram Growth annual plan (up to 20% off)      |
+| Deepgram STT concurrency | Concurrent STT WSS > 120                  | Deepgram Growth (225 WSS) or Enterprise          |
+| Deepgram TTS concurrency | Concurrent TTS WSS > 40                   | Deepgram Growth (60 WSS) or Enterprise           |
+| DeepSeek native          | Monthly LLM spend > $300                  | Self-host on Modal or GPU VPS                    |
 
 Each trigger is a known cost-step. Monthly review.
 
@@ -1025,53 +1042,53 @@ The architecture supports four markets. The team can't ship four simultaneously.
 
 ### Recommended phased shipping
 
-| Phase | Months | Markets shipped | Why this order |
-|---|---|---|---|
-| Phase 1 (v1) | 1–3 | India English | Cheapest stack, home market, fastest signal |
-| Phase 2 (v1.5) | 4–5 | India Hindi via Sarvam | 10× addressable market in India; provider swap only |
-| Phase 3 (v2) | 6–9 | US HIPAA via Together + Deepgram BAA | Requires compliance investment; pursue with a real prospect |
-| Phase 4 (later) | 10+ | Global English / others | Mostly adding provider implementations |
+| Phase           | Months | Markets shipped                      | Why this order                                              |
+| --------------- | ------ | ------------------------------------ | ----------------------------------------------------------- |
+| Phase 1 (v1)    | 1–3    | India English                        | Cheapest stack, home market, fastest signal                 |
+| Phase 2 (v1.5)  | 4–5    | India Hindi via Sarvam               | 10× addressable market in India; provider swap only         |
+| Phase 3 (v2)    | 6–9    | US HIPAA via Together + Deepgram BAA | Requires compliance investment; pursue with a real prospect |
+| Phase 4 (later) | 10+    | Global English / others              | Mostly adding provider implementations                      |
 
 If this order is wrong, pick a phase 1 that's NOT India English — but pick one.
 
 ### Remaining decisions
 
-| Decision | Default if not specified |
-|---|---|
-| Phase 1 market | India English |
-| Pricing per tier | Placeholders in §12; validate before locking |
-| Phone numbers | Always-we-provision via Twilio (BYO deferred to v2) |
-| First-customer mode | Sales-led for first 20; self-serve default after |
-| Hindi LLM choice | DeepSeek native (cheaper) over Sarvam-M (Indian-hosted) — revisit after first Hindi pilot |
-| HIPAA trigger | First paid US clinic prospect — don't spend on SOC 2 audit speculatively |
-| Deepgram plan | PAYG with $200 credit through build phase; switch to Growth annual after $300/mo spend |
+| Decision            | Default if not specified                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| Phase 1 market      | India English                                                                             |
+| Pricing per tier    | Placeholders in §12; validate before locking                                              |
+| Phone numbers       | Always-we-provision via Twilio (BYO deferred to v2)                                       |
+| First-customer mode | Sales-led for first 20; self-serve default after                                          |
+| Hindi LLM choice    | DeepSeek native (cheaper) over Sarvam-M (Indian-hosted) — revisit after first Hindi pilot |
+| HIPAA trigger       | First paid US clinic prospect — don't spend on SOC 2 audit speculatively                  |
+| Deepgram plan       | PAYG with $200 credit through build phase; switch to Growth annual after $300/mo spend    |
 
 ---
 
 ## 17. Glossary
 
-| Term | Definition |
-|---|---|
-| Tenant | A client business with their own data, agents, phone numbers, billing |
-| Agent | A configured voice AI for a specific phone number; one tenant has many |
-| Market | A combination of geography, language, and compliance regime (e.g. `india_english`, `us_hipaa`) |
-| Provider | A concrete vendor implementation (Deepgram, Sarvam, DeepSeek, etc.) |
-| Provider config | The JSONB on a tenant that names which STT/TTS/LLM implementations to use |
-| Starter prompt | One of five prompt presets picked at onboarding (receptionist, restaurant, etc.) |
-| Workflow | The single generic state machine all agents run on |
-| Tool | A function the AI can invoke (bookAppointment, transferToHuman, etc.) |
-| Turn | One user utterance + one AI response |
-| RAG | Retrieval-Augmented Generation |
-| RLS | Postgres Row Level Security |
-| COGS | Variable cost per minute of call delivered |
-| TwiML | Twilio Markup Language for call control |
-| Media Streams | Twilio's bidirectional audio websocket protocol |
-| Sales-led | Onboarding path where the internal team configures a tenant via the dashboard |
-| Self-serve | Onboarding path where the client configures their own tenant via the portal |
-| Aura voice | A named Deepgram TTS voice (e.g. `aura-asteria-en`, `aura-orion-en`) |
-| Nova-3 | Deepgram's current-generation STT model family |
-| BAA | Business Associate Agreement — HIPAA-required contract with each vendor that touches PHI |
+| Term            | Definition                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| Tenant          | A client business with their own data, agents, phone numbers, billing                          |
+| Agent           | A configured voice AI for a specific phone number; one tenant has many                         |
+| Market          | A combination of geography, language, and compliance regime (e.g. `india_english`, `us_hipaa`) |
+| Provider        | A concrete vendor implementation (Deepgram, Sarvam, DeepSeek, etc.)                            |
+| Provider config | The JSONB on a tenant that names which STT/TTS/LLM implementations to use                      |
+| Starter prompt  | One of five prompt presets picked at onboarding (receptionist, restaurant, etc.)               |
+| Workflow        | The single generic state machine all agents run on                                             |
+| Tool            | A function the AI can invoke (bookAppointment, transferToHuman, etc.)                          |
+| Turn            | One user utterance + one AI response                                                           |
+| RAG             | Retrieval-Augmented Generation                                                                 |
+| RLS             | Postgres Row Level Security                                                                    |
+| COGS            | Variable cost per minute of call delivered                                                     |
+| TwiML           | Twilio Markup Language for call control                                                        |
+| Media Streams   | Twilio's bidirectional audio websocket protocol                                                |
+| Sales-led       | Onboarding path where the internal team configures a tenant via the dashboard                  |
+| Self-serve      | Onboarding path where the client configures their own tenant via the portal                    |
+| Aura voice      | A named Deepgram TTS voice (e.g. `aura-asteria-en`, `aura-orion-en`)                           |
+| Nova-3          | Deepgram's current-generation STT model family                                                 |
+| BAA             | Business Associate Agreement — HIPAA-required contract with each vendor that touches PHI       |
 
 ---
 
-*End of design.md*
+_End of design.md_
