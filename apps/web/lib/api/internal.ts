@@ -381,3 +381,35 @@ export async function deleteKnowledgeDocument(
     method: "DELETE",
   });
 }
+
+// --- Leads (ticket 5.02) -----------------------------------------------------
+
+export type LeadStatus = "new" | "contacted" | "converted" | "lost";
+
+export type Lead = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  contact_email: string;
+  contact_phone: string | null;
+  message: string | null;
+  source: string | null;
+  status: LeadStatus;
+  created_at: string;
+};
+
+export async function fetchLeads(accessToken: string, status?: LeadStatus): Promise<Lead[]> {
+  const query = status ? `?status=${status}` : "";
+  return internalFetch(`/internal/leads${query}`, accessToken);
+}
+
+export async function updateLeadStatus(
+  accessToken: string,
+  leadId: string,
+  status: LeadStatus
+): Promise<Lead> {
+  return internalFetch(`/internal/leads/${leadId}`, accessToken, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}

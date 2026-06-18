@@ -2,12 +2,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { FadeUp, EyebrowWhite, Icon } from "./lib";
 import { useMobile } from "./mid";
 import { WaveMark } from "./wave-mark";
-import { landingRoutes } from "./routes";
+import { openLeadDialog } from "./lead-dialog";
 
 const useS5 = useState,
   useE5 = useEffect;
@@ -66,7 +65,6 @@ function ScrollProgress() {
 
 /* ---------- CTA BANNER ---------- */
 function CTABanner() {
-  const router = useRouter();
   const mobile = useMobile();
   return (
     <section style={{ background: "#0D0D0D", position: "relative", overflow: "hidden" }}>
@@ -136,7 +134,7 @@ function CTABanner() {
             }}
           >
             <M5.button
-              onClick={() => router.push(landingRoutes.signup)}
+              onClick={() => openLeadDialog("cta-footer")}
               whileHover={{ scale: 1.03, backgroundColor: "#FF5E14" }}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.18 }}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { EASE_OUT_EXPO, Eyebrow, Icon, Star } from "./lib";
 import { landingRoutes } from "./routes";
+import { openLeadDialog } from "./lead-dialog";
 import { scrollToSection } from "./scroll-to-section";
 import { WaveMark } from "./wave-mark";
 
@@ -165,7 +166,7 @@ function Nav() {
               Sign in
             </button>
             <M.button
-              onClick={() => router.push(landingRoutes.signup)}
+              onClick={() => openLeadDialog("landing")}
               whileHover={{ scale: 1.03, backgroundColor: "#F04E00" }}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
@@ -265,7 +266,7 @@ function Nav() {
                 Sign in
               </button>
               <button
-                onClick={() => router.push(landingRoutes.signup)}
+                onClick={() => openLeadDialog("landing")}
                 style={{
                   border: "none",
                   background: "#F04E00",
@@ -636,7 +637,6 @@ function FloatCards({ mobile }) {
 
 /* ---------- HERO ---------- */
 function Hero() {
-  const router = useRouter();
   const [mobile, setMobile] = useStateNH(false);
   useEffectNH(() => {
     const r = () => setMobile(window.innerWidth <= 900);
@@ -845,7 +845,7 @@ function Hero() {
                 whileHover={{ scale: 1.02, backgroundColor: "#F04E00" }}
                 whileTap={{ scale: 0.97 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-                onClick={() => router.push(landingRoutes.signup)}
+                onClick={() => openLeadDialog("landing")}
                 style={{
                   background: "#111",
                   color: "#fff",

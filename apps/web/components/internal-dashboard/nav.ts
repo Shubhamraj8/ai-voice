@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, Building2, FileText, Phone } from "lucide-react";
+import { Activity, Building2, FileText, Inbox, Phone } from "lucide-react";
 
 export type InternalNavItem = {
   href: string;
@@ -19,6 +19,17 @@ export const internalNavItems: InternalNavItem[] = [
       { label: "Active tenants", value: "—" },
       { label: "New this week", value: "—" },
       { label: "On trial", value: "—" },
+    ],
+  },
+  {
+    href: "/internal/leads",
+    label: "Leads",
+    icon: Inbox,
+    description: "Triage inbound leads from the marketing site.",
+    previewStats: [
+      { label: "New leads", value: "—" },
+      { label: "Contacted", value: "—" },
+      { label: "Converted", value: "—" },
     ],
   },
   {

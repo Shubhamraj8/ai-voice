@@ -2,11 +2,10 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eyebrow, Heading2, Stagger, SI, Icon, Star } from "./lib";
 import { useMobile, wrapPad, SECTION_PY } from "./mid";
-import { landingRoutes } from "./routes";
+import { openLeadDialog } from "./lead-dialog";
 
 const useS4 = useState,
   useR4 = useRef;
@@ -149,9 +148,8 @@ function PriceBlock({ plan, annual }) {
 }
 
 function PricingCard({ plan, annual }) {
-  const router = useRouter();
   const f = plan.featured;
-  const goSignup = () => router.push(landingRoutes.signup);
+  const goSignup = () => openLeadDialog("pricing");
   return (
     <div
       style={{
