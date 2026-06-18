@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { CTABanner, Footer, ScrollProgress } from "./cta-footer";
+import { LeadDialog } from "./lead-dialog";
 import { FAQ, Pricing } from "./pricing-faq";
 import { HowItWorks, Stats, ValueProp } from "./mid";
 import { Hero, Marquee, Nav } from "./nav-hero";
@@ -68,6 +69,7 @@ export function LandingPage() {
       <FAQ />
       <CTABanner />
       <Footer />
+      <LeadDialog />
     </div>
   );
 }

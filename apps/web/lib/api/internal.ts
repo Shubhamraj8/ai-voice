@@ -43,6 +43,7 @@ export type TenantDetail = {
     contact_email: string | null;
     contact_name: string | null;
     contact_phone: string | null;
+    paid_until: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -165,6 +166,38 @@ export async function patchTenant(
 ): Promise<TenantDetail["tenant"]> {
   return internalFetch(`/internal/tenants/${tenantId}`, accessToken, {
     method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function inviteTenantLogin(
+  accessToken: string,
+  tenantId: string,
+  email: string,
+  role: "owner" | "admin" | "member" = "owner"
+): Promise<{ user_id: string; email: string }> {
+  return internalFetch(`/internal/tenants/${tenantId}/invite`, accessToken, {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export type PaymentRecordBody = {
+  amount_inr: number;
+  method: string;
+  plan: string;
+  period_start: string;
+  period_end: string;
+  reference?: string;
+};
+
+export async function recordTenantPayment(
+  accessToken: string,
+  tenantId: string,
+  body: PaymentRecordBody
+): Promise<{ status: string; paid_until: string }> {
+  return internalFetch(`/internal/tenants/${tenantId}/payments`, accessToken, {
+    method: "POST",
     body: JSON.stringify(body),
   });
 }
@@ -379,5 +412,37 @@ export async function deleteKnowledgeDocument(
 ): Promise<void> {
   await internalFetch(`/internal/tenants/${tenantId}/knowledge/${documentId}`, accessToken, {
     method: "DELETE",
+  });
+}
+
+// --- Leads (ticket 5.02) -----------------------------------------------------
+
+export type LeadStatus = "new" | "contacted" | "converted" | "lost";
+
+export type Lead = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  contact_email: string;
+  contact_phone: string | null;
+  message: string | null;
+  source: string | null;
+  status: LeadStatus;
+  created_at: string;
+};
+
+export async function fetchLeads(accessToken: string, status?: LeadStatus): Promise<Lead[]> {
+  const query = status ? `?status=${status}` : "";
+  return internalFetch(`/internal/leads${query}`, accessToken);
+}
+
+export async function updateLeadStatus(
+  accessToken: string,
+  leadId: string,
+  status: LeadStatus
+): Promise<Lead> {
+  return internalFetch(`/internal/leads/${leadId}`, accessToken, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 }

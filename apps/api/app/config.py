@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     escalation_from_email: str = ""
     public_app_base_url: str = "http://localhost:3000"
 
+    # Lead capture — team notification inbox (ticket 5.02)
+    leads_notify_email: str = ""
+
     # Internal dashboard (ticket 3.01)
     internal_user_email: str = ""
 

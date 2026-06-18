@@ -353,6 +353,15 @@ async def patch_tenant(conn, tenant_id: UUID, body: InternalTenantPatch) -> Tena
             set_parts.append(f"{key} = ${param_idx}")
         params.append(value)
 
+    # Extending the access window re-activates a paused tenant (ticket 5.03).
+    if (
+        updates.get("paid_until") is not None
+        and "status" not in updates
+        and row["status"] == TenantStatus.PAUSED.value
+    ):
+        set_parts.append("status = 'active'")
+        set_parts.append("archived_at = NULL")
+
     if updates.get("status") == TenantStatus.CHURNED.value:
         set_parts.append("archived_at = NOW()")
     elif updates.get("status") in (

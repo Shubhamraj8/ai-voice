@@ -49,6 +49,7 @@ class Tenant(BaseModel):
     contact_email: str | None = None
     contact_name: str | None = None
     contact_phone: str | None = None
+    paid_until: datetime | None = None
     archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

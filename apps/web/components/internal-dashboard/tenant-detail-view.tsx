@@ -5,7 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, PauseCircle, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { fetchTenantDetail, patchTenant, type TenantDetail } from "@/lib/api/internal";
+import {
+  fetchTenantDetail,
+  inviteTenantLogin,
+  patchTenant,
+  recordTenantPayment,
+  type TenantDetail,
+} from "@/lib/api/internal";
 import { AgentEditForm } from "@/components/internal-dashboard/agent-edit-form";
 import { KnowledgeTab } from "@/components/internal-dashboard/knowledge-tab";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -44,6 +50,21 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingAccess, setSavingAccess] = useState(false);
+  const [accessDraft, setAccessDraft] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const [recordingPayment, setRecordingPayment] = useState(false);
+  const [paymentMsg, setPaymentMsg] = useState<string | null>(null);
+  const [paymentDraft, setPaymentDraft] = useState({
+    amount_inr: "",
+    method: "UPI",
+    plan: "starter",
+    period_start: "",
+    period_end: "",
+    reference: "",
+  });
   const [providerDraft, setProviderDraft] = useState({
     stt: "",
     tts: "",
@@ -70,6 +91,7 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
         const detail = await fetchTenantDetail(session.access_token, tenantId, auditPage);
         setData(detail);
         setProviderDraft(detail.tenant.provider_config);
+        setAccessDraft(detail.tenant.paid_until ? detail.tenant.paid_until.slice(0, 10) : "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load tenant");
       } finally {
@@ -112,6 +134,80 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
       setError(err instanceof Error ? err.message : "Failed to save provider config");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveAccessWindow() {
+    setSavingAccess(true);
+    setError(null);
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      // End-of-day in local time, sent as ISO. Empty clears the window.
+      const paid_until = accessDraft ? new Date(`${accessDraft}T23:59:59`).toISOString() : null;
+      await patchTenant(session.access_token, tenantId, { paid_until });
+      await loadDetail();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update access window");
+    } finally {
+      setSavingAccess(false);
+    }
+  }
+
+  async function sendInvite() {
+    if (!inviteEmail) return;
+    setInviting(true);
+    setError(null);
+    setInviteMsg(null);
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await inviteTenantLogin(session.access_token, tenantId, inviteEmail);
+      setInviteMsg(`Invite sent to ${inviteEmail}`);
+      setInviteEmail("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send invite");
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function recordPaymentFn() {
+    setRecordingPayment(true);
+    setError(null);
+    setPaymentMsg(null);
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await recordTenantPayment(session.access_token, tenantId, {
+        amount_inr: Number(paymentDraft.amount_inr),
+        method: paymentDraft.method,
+        plan: paymentDraft.plan,
+        period_start: paymentDraft.period_start,
+        period_end: paymentDraft.period_end,
+        reference: paymentDraft.reference || undefined,
+      });
+      setPaymentMsg("Payment recorded — access extended.");
+      await loadDetail();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to record payment");
+    } finally {
+      setRecordingPayment(false);
     }
   }
 
@@ -232,6 +328,143 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
               onClick={() => void saveProviderConfig()}
             >
               {saving ? "Saving…" : "Save config"}
+            </Button>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5">
+            <h2 className="font-medium">Access window</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Agents answer only while the paid window is active. Past the date, the tenant is
+              paused automatically.
+            </p>
+            <p className="mt-3 text-sm">
+              <span className="text-muted-foreground">Paid until: </span>
+              {tenant.paid_until ? (
+                <span className="font-medium">
+                  {new Date(tenant.paid_until).toLocaleDateString()}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">not set (no access)</span>
+              )}
+            </p>
+            <div className="mt-4 space-y-1">
+              <Label htmlFor="paid_until">Set paid-until date</Label>
+              <Input
+                id="paid_until"
+                type="date"
+                value={accessDraft}
+                onChange={(e) => setAccessDraft(e.target.value)}
+              />
+            </div>
+            <Button
+              className="mt-4 bg-[#f04e00] hover:bg-[#d94400]"
+              size="sm"
+              disabled={savingAccess}
+              onClick={() => void saveAccessWindow()}
+            >
+              {savingAccess ? "Saving…" : "Update access"}
+            </Button>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5">
+            <h2 className="font-medium">Client login</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Invite the client to the portal — they get an email to set their password.
+            </p>
+            <div className="mt-4 space-y-1">
+              <Label htmlFor="invite_email">Email</Label>
+              <Input
+                id="invite_email"
+                type="email"
+                placeholder="owner@business.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+            {inviteMsg ? <p className="mt-2 text-sm text-emerald-700">{inviteMsg}</p> : null}
+            <Button
+              className="mt-4 bg-[#f04e00] hover:bg-[#d94400]"
+              size="sm"
+              disabled={inviting || !inviteEmail}
+              onClick={() => void sendInvite()}
+            >
+              {inviting ? "Sending…" : "Send invite"}
+            </Button>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5 lg:col-span-2">
+            <h2 className="font-medium">Record payment</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Log an offline payment (UPI / bank transfer). This extends the access window and
+              re-activates the tenant.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1">
+                <Label htmlFor="pay_amount">Amount (₹)</Label>
+                <Input
+                  id="pay_amount"
+                  type="number"
+                  min="0"
+                  value={paymentDraft.amount_inr}
+                  onChange={(e) => setPaymentDraft((d) => ({ ...d, amount_inr: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pay_plan">Plan</Label>
+                <select
+                  id="pay_plan"
+                  value={paymentDraft.plan}
+                  onChange={(e) => setPaymentDraft((d) => ({ ...d, plan: e.target.value }))}
+                  className="h-9 w-full rounded-md border border-zerqo-line bg-white px-3 text-sm"
+                >
+                  <option value="starter">Starter</option>
+                  <option value="growth">Growth</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pay_method">Method</Label>
+                <Input
+                  id="pay_method"
+                  value={paymentDraft.method}
+                  onChange={(e) => setPaymentDraft((d) => ({ ...d, method: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pay_start">Period start</Label>
+                <Input
+                  id="pay_start"
+                  type="date"
+                  value={paymentDraft.period_start}
+                  onChange={(e) => setPaymentDraft((d) => ({ ...d, period_start: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pay_end">Period end</Label>
+                <Input
+                  id="pay_end"
+                  type="date"
+                  value={paymentDraft.period_end}
+                  onChange={(e) => setPaymentDraft((d) => ({ ...d, period_end: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pay_ref">Reference (UTR)</Label>
+                <Input
+                  id="pay_ref"
+                  value={paymentDraft.reference}
+                  onChange={(e) => setPaymentDraft((d) => ({ ...d, reference: e.target.value }))}
+                />
+              </div>
+            </div>
+            {paymentMsg ? <p className="mt-2 text-sm text-emerald-700">{paymentMsg}</p> : null}
+            <Button
+              className="mt-4 bg-[#f04e00] hover:bg-[#d94400]"
+              size="sm"
+              disabled={recordingPayment || !paymentDraft.amount_inr || !paymentDraft.period_end}
+              onClick={() => void recordPaymentFn()}
+            >
+              {recordingPayment ? "Recording…" : "Record payment"}
             </Button>
           </section>
 
