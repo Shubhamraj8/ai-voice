@@ -182,6 +182,26 @@ export async function inviteTenantLogin(
   });
 }
 
+export type PaymentRecordBody = {
+  amount_inr: number;
+  method: string;
+  plan: string;
+  period_start: string;
+  period_end: string;
+  reference?: string;
+};
+
+export async function recordTenantPayment(
+  accessToken: string,
+  tenantId: string,
+  body: PaymentRecordBody
+): Promise<{ status: string; paid_until: string }> {
+  return internalFetch(`/internal/tenants/${tenantId}/payments`, accessToken, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export type AvailableNumber = {
   phone_number: string;
   friendly_name: string | null;

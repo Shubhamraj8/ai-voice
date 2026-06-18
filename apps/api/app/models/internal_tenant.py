@@ -155,3 +155,14 @@ class TenantInviteRequest(BaseModel):
     )
     role: Literal["owner", "admin", "member"] = "owner"
     lead_id: UUID | None = None
+
+
+class PaymentRecord(BaseModel):
+    """Record an offline payment that extends a tenant's access (ticket 5.05)."""
+
+    amount_inr: float = Field(gt=0)
+    method: str = Field(min_length=1, max_length=50)
+    plan: str = Field(min_length=1, max_length=50)
+    period_start: date
+    period_end: date
+    reference: str | None = Field(default=None, max_length=200)

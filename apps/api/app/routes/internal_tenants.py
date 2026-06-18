@@ -12,6 +12,7 @@ from app.models.internal_tenant import (
     AvailableNumbersResponse,
     InternalTenantCreate,
     InternalTenantPatch,
+    PaymentRecord,
     TenantDetailResponse,
     TenantInviteRequest,
     TenantListResponse,
@@ -20,6 +21,7 @@ from app.models.internal_tenant import (
 from app.models.tenant import Tenant, TenantMarket, TenantStatus
 from app.services import twilio_numbers
 from app.services.audit import log_internal_action
+from app.services.billing import record_payment
 from app.services.leads import update_lead_status
 from app.services.onboarding import invite_tenant_login
 from app.services.tenant_internal import (
@@ -245,5 +247,35 @@ async def invite_tenant_user(
         target_type="tenant",
         target_id=tenant_id,
         payload={"email": body.email, "role": body.role},
+    )
+    return result
+
+
+@router.post("/{tenant_id}/payments", status_code=201)
+async def record_tenant_payment(
+    tenant_id: UUID,
+    body: PaymentRecord,
+    ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+) -> dict:
+    result = await record_payment(
+        tenant_id,
+        amount_inr=body.amount_inr,
+        method=body.method,
+        plan=body.plan,
+        period_start=body.period_start,
+        period_end=body.period_end,
+        reference=body.reference,
+    )
+    await log_internal_action(
+        actor_id=ctx.user.id,
+        action="internal.tenant.payment",
+        tenant_id=tenant_id,
+        target_type="tenant",
+        target_id=tenant_id,
+        payload={
+            "amount_inr": body.amount_inr,
+            "plan": body.plan,
+            "period_end": body.period_end.isoformat(),
+        },
     )
     return result
