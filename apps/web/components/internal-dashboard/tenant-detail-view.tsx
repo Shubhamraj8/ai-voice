@@ -44,6 +44,8 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingAccess, setSavingAccess] = useState(false);
+  const [accessDraft, setAccessDraft] = useState("");
   const [providerDraft, setProviderDraft] = useState({
     stt: "",
     tts: "",
@@ -70,6 +72,7 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
         const detail = await fetchTenantDetail(session.access_token, tenantId, auditPage);
         setData(detail);
         setProviderDraft(detail.tenant.provider_config);
+        setAccessDraft(detail.tenant.paid_until ? detail.tenant.paid_until.slice(0, 10) : "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load tenant");
       } finally {
@@ -112,6 +115,28 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
       setError(err instanceof Error ? err.message : "Failed to save provider config");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveAccessWindow() {
+    setSavingAccess(true);
+    setError(null);
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      // End-of-day in local time, sent as ISO. Empty clears the window.
+      const paid_until = accessDraft ? new Date(`${accessDraft}T23:59:59`).toISOString() : null;
+      await patchTenant(session.access_token, tenantId, { paid_until });
+      await loadDetail();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update access window");
+    } finally {
+      setSavingAccess(false);
     }
   }
 
@@ -232,6 +257,41 @@ export function TenantDetailView({ tenantId }: TenantDetailViewProps) {
               onClick={() => void saveProviderConfig()}
             >
               {saving ? "Saving…" : "Save config"}
+            </Button>
+          </section>
+
+          <section className="rounded-xl border border-zerqo-line bg-white p-5">
+            <h2 className="font-medium">Access window</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Agents answer only while the paid window is active. Past the date, the tenant is
+              paused automatically.
+            </p>
+            <p className="mt-3 text-sm">
+              <span className="text-muted-foreground">Paid until: </span>
+              {tenant.paid_until ? (
+                <span className="font-medium">
+                  {new Date(tenant.paid_until).toLocaleDateString()}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">not set (no access)</span>
+              )}
+            </p>
+            <div className="mt-4 space-y-1">
+              <Label htmlFor="paid_until">Set paid-until date</Label>
+              <Input
+                id="paid_until"
+                type="date"
+                value={accessDraft}
+                onChange={(e) => setAccessDraft(e.target.value)}
+              />
+            </div>
+            <Button
+              className="mt-4 bg-[#f04e00] hover:bg-[#d94400]"
+              size="sm"
+              disabled={savingAccess}
+              onClick={() => void saveAccessWindow()}
+            >
+              {savingAccess ? "Saving…" : "Update access"}
             </Button>
           </section>
 

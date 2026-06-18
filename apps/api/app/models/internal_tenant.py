@@ -142,4 +142,5 @@ class InternalTenantPatch(BaseModel):
     contact_email: str | None = None
     contact_name: str | None = None
     contact_phone: str | None = None
+    paid_until: datetime | None = None
     provider_config: ProviderConfig | None = None

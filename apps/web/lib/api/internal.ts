@@ -43,6 +43,7 @@ export type TenantDetail = {
     contact_email: string | null;
     contact_name: string | null;
     contact_phone: string | null;
+    paid_until: string | null;
     created_at: string;
     updated_at: string;
   };

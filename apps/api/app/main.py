@@ -13,6 +13,7 @@ from app.middleware.request_id import RequestIdMiddleware
 from app.routes import api_router
 from app.services.agent_sweeper import run_agent_sweeper
 from app.services.calls_reaper import run_stale_call_reaper
+from app.services.subscription_expiry import run_subscription_expiry
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -25,15 +26,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db_pool = await create_pool(settings.database_url)
     reaper_task = asyncio.create_task(run_stale_call_reaper())
     sweeper_task = asyncio.create_task(run_agent_sweeper())
+    expiry_task = asyncio.create_task(run_subscription_expiry())
     try:
         yield
     finally:
         reaper_task.cancel()
         sweeper_task.cancel()
+        expiry_task.cancel()
         with suppress(asyncio.CancelledError):
             await reaper_task
         with suppress(asyncio.CancelledError):
             await sweeper_task
+        with suppress(asyncio.CancelledError):
+            await expiry_task
         await close_pool(app.state.db_pool)
         logger.info("app_stopped")
 
