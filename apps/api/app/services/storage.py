@@ -129,30 +129,58 @@ async def delete_document(*, path: str) -> bool:
     return await _delete_object(bucket=get_settings().knowledge_bucket, path=path)
 
 
-async def create_signed_url(*, path: str, expires_in: int | None = None) -> str | None:
-    """Return a time-limited signed URL for ``recordings/{path}`` playback."""
+async def upload_export(*, path: str, data: bytes) -> bool:
+    """Upload a DPDP data-export ZIP to the exports bucket (ticket 5.12)."""
+    return await _upload_object(
+        bucket=get_settings().exports_bucket,
+        path=path,
+        data=data,
+        content_type="application/zip",
+    )
+
+
+async def _create_signed_url(*, bucket: str, path: str, expires_in: int) -> str | None:
+    """Return a time-limited signed URL for ``{bucket}/{path}``."""
 
     settings = get_settings()
     base = settings.supabase_url.rstrip("/")
-    ttl = expires_in if expires_in is not None else settings.recording_signed_url_ttl_s
-    sign_url = (
-        f"{base}/storage/v1/object/sign/{settings.recordings_bucket}/"
-        f"{quote(path, safe='/')}"
-    )
+    sign_url = f"{base}/storage/v1/object/sign/{bucket}/{quote(path, safe='/')}"
     headers = {**_auth_headers(), "Content-Type": "application/json"}
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                sign_url, json={"expiresIn": ttl}, headers=headers
+                sign_url, json={"expiresIn": expires_in}, headers=headers
             )
             response.raise_for_status()
             signed = response.json().get("signedURL")
     except Exception as exc:
-        logger.error("recording_sign_failed", path=path, error=str(exc))
+        logger.error("object_sign_failed", bucket=bucket, path=path, error=str(exc))
         return None
 
     if not signed:
         return None
-    # The API returns a path like ``/object/sign/recordings/...?token=...``.
+    # The API returns a path like ``/object/sign/{bucket}/...?token=...``.
     return f"{base}/storage/v1{signed}"
+
+
+async def create_signed_url(*, path: str, expires_in: int | None = None) -> str | None:
+    """Return a time-limited signed URL for ``recordings/{path}`` playback."""
+
+    settings = get_settings()
+    ttl = expires_in if expires_in is not None else settings.recording_signed_url_ttl_s
+    return await _create_signed_url(
+        bucket=settings.recordings_bucket, path=path, expires_in=ttl
+    )
+
+
+async def create_export_signed_url(
+    *, path: str, expires_in: int | None = None
+) -> str | None:
+    """Return a signed download URL for a DPDP export ZIP (ticket 5.12)."""
+
+    settings = get_settings()
+    ttl = expires_in if expires_in is not None else settings.export_signed_url_ttl_s
+    return await _create_signed_url(
+        bucket=settings.exports_bucket, path=path, expires_in=ttl
+    )

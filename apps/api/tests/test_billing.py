@@ -1,7 +1,7 @@
 """Tests for manual payment recording (ticket 5.05). DB mocked."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -59,3 +59,42 @@ async def test_record_payment_tenant_not_found(mock_db_pool, monkeypatch):
 
     assert exc.value.status_code == 404
     conn.execute.assert_not_awaited()
+
+
+async def test_list_billing_events_parses_metadata(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    monkeypatch.setattr(billing, "get_pool", lambda: pool)
+    tid = uuid.uuid4()
+    conn.fetch.return_value = [
+        {
+            "id": uuid.uuid4(),
+            "tenant_id": tid,
+            "call_id": None,
+            "event_type": "payment_recorded",
+            "units": None,
+            "amount_inr": 2999,
+            "metadata_json": '{"method": "UPI", "reference": "UTR123"}',
+            "created_at": datetime(2026, 7, 1, tzinfo=UTC),
+        }
+    ]
+
+    events = await billing.list_billing_events(tid)
+
+    assert len(events) == 1
+    assert events[0].metadata == {"method": "UPI", "reference": "UTR123"}
+    assert events[0].amount_inr == 2999
+    # scoped to the requested tenant, no event_type filter applied
+    assert conn.fetch.await_args.args[1] == tid
+
+
+async def test_list_billing_events_event_type_filter(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    monkeypatch.setattr(billing, "get_pool", lambda: pool)
+    tid = uuid.uuid4()
+    conn.fetch.return_value = []
+
+    await billing.list_billing_events(tid, event_type="usage_reported", limit=50)
+
+    sql = conn.fetch.await_args.args[0]
+    assert "event_type = $2" in sql
+    assert conn.fetch.await_args.args[1:] == (tid, "usage_reported", 50)

@@ -7,6 +7,7 @@ from twilio.base.exceptions import TwilioRestException
 from app.db.pool import get_pool
 from app.errors import api_error
 from app.middleware.auth import InternalUserContext, require_internal_user
+from app.models.billing import BillingEvent
 from app.models.internal_tenant import (
     AvailableNumber,
     AvailableNumbersResponse,
@@ -21,7 +22,7 @@ from app.models.internal_tenant import (
 from app.models.tenant import Tenant, TenantMarket, TenantStatus
 from app.services import twilio_numbers
 from app.services.audit import log_internal_action
-from app.services.billing import record_payment
+from app.services.billing import list_billing_events, record_payment
 from app.services.leads import update_lead_status
 from app.services.onboarding import invite_tenant_login
 from app.services.tenant_internal import (
@@ -249,6 +250,18 @@ async def invite_tenant_user(
         payload={"email": body.email, "role": body.role},
     )
     return result
+
+
+@router.get("/{tenant_id}/billing", response_model=list[BillingEvent])
+async def get_tenant_billing(
+    tenant_id: UUID,
+    _ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+    event_type: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+) -> list[BillingEvent]:
+    """Read any tenant's billing/usage ledger for staff troubleshooting."""
+
+    return await list_billing_events(tenant_id, event_type=event_type, limit=limit)
 
 
 @router.post("/{tenant_id}/payments", status_code=201)

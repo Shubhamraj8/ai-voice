@@ -15,8 +15,46 @@ import structlog
 
 from app.db.pool import get_pool
 from app.errors import api_error
+from app.models.billing import BillingEvent
 
 logger = structlog.get_logger(__name__)
+
+
+def _to_billing_event(row) -> BillingEvent:
+    """Map a billing_events row to the API model (jsonb arrives as a string)."""
+
+    data = dict(row)
+    meta = data.pop("metadata_json", None)
+    if isinstance(meta, str):
+        meta = json.loads(meta)
+    data["metadata"] = meta
+    return BillingEvent.model_validate(data)
+
+
+async def list_billing_events(
+    tenant_id: UUID, *, event_type: str | None = None, limit: int = 100
+) -> list[BillingEvent]:
+    """Read a tenant's ledger, newest first. Used by the portal billing page
+    (5.11) and the internal billing view; scoping is by ``tenant_id``."""
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        if event_type:
+            rows = await conn.fetch(
+                "SELECT * FROM billing_events WHERE tenant_id = $1 "
+                "AND event_type = $2 ORDER BY created_at DESC LIMIT $3",
+                tenant_id,
+                event_type,
+                limit,
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT * FROM billing_events WHERE tenant_id = $1 "
+                "ORDER BY created_at DESC LIMIT $2",
+                tenant_id,
+                limit,
+            )
+    return [_to_billing_event(row) for row in rows]
 
 
 async def log_billing_event(

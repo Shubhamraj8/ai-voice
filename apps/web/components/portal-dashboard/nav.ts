@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, LayoutDashboard, Phone, Settings } from "lucide-react";
+import { BookOpen, CreditCard, LayoutDashboard, Phone, Settings } from "lucide-react";
 
 export type PortalNavItem = {
   href: string;
@@ -41,6 +41,17 @@ export const portalNavItems: PortalNavItem[] = [
       { label: "Documents", value: "—" },
       { label: "Chunks indexed", value: "—" },
       { label: "Last updated", value: "—" },
+    ],
+  },
+  {
+    href: "/portal/billing",
+    label: "Billing",
+    icon: CreditCard,
+    description: "View your plan, usage, payment history, and access window.",
+    previewStats: [
+      { label: "Plan", value: "—" },
+      { label: "Minutes used", value: "—" },
+      { label: "Valid until", value: "—" },
     ],
   },
   {

@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # Knowledge base → Supabase Storage (ticket 4.01)
     knowledge_bucket: str = "knowledge"
 
+    # DPDP data export → Supabase Storage (ticket 5.12)
+    exports_bucket: str = "exports"
+    export_signed_url_ttl_s: int = 604800  # 7 days
+
     # Embeddings + retrieval (tickets 4.03, 4.05)
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"

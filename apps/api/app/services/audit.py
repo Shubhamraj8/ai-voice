@@ -91,6 +91,27 @@ async def log_internal_action(
     )
 
 
+async def log_tenant_action(
+    actor_id: UUID,
+    action: str,
+    *,
+    tenant_id: UUID,
+    target_type: str | None = None,
+    target_id: UUID | None = None,
+    payload: dict | None = None,
+) -> None:
+    """Write an audit row for a tenant-user action (e.g. DPDP export, 5.12)."""
+    await _write_audit(
+        actor_user_id=actor_id,
+        actor_type="tenant_user",
+        action=action,
+        tenant_id=tenant_id,
+        target_type=target_type,
+        target_id=target_id,
+        payload=payload,
+    )
+
+
 async def log_system_action(
     action: str,
     *,
