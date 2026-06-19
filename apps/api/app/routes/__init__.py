@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.routes import (
     billing,
+    dpdp,
     health,
     internal,
     internal_agents,
@@ -23,6 +24,7 @@ api_router.include_router(pricing.router)
 api_router.include_router(leads.router)
 api_router.include_router(billing.router)
 api_router.include_router(portal.router)
+api_router.include_router(dpdp.router)
 api_router.include_router(internal.router)
 api_router.include_router(internal_tenants.router)
 api_router.include_router(internal_agents.router)

@@ -231,3 +231,15 @@ export async function fetchBillingEvents(accessToken: string): Promise<BillingEv
 
 export const getBillingSummary = cache(fetchBillingSummary);
 export const getBillingEvents = cache(fetchBillingEvents);
+
+export async function requestDataExport(accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/dpdp/export`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
