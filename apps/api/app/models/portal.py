@@ -49,3 +49,13 @@ class DashboardSummary(BaseModel):
     recent_calls: list[RecentCall]
     knowledge: KnowledgeStatus
     plan: PlanCard
+
+
+class CallListPage(BaseModel):
+    """A page of the tenant's call history (ticket 5.09)."""
+
+    items: list[RecentCall]
+    total: int
+    page: int
+    page_size: int
+    available_intents: list[str]

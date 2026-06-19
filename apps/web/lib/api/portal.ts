@@ -62,3 +62,52 @@ export async function fetchDashboardSummary(accessToken: string): Promise<Dashbo
 }
 
 export const getDashboardSummary = cache(fetchDashboardSummary);
+
+export type CallListPage = {
+  items: RecentCall[];
+  total: number;
+  page: number;
+  page_size: number;
+  available_intents: string[];
+};
+
+export type CallsQuery = {
+  page?: number;
+  outcome?: string;
+  intent?: string;
+  search?: string;
+  date_from?: string; // YYYY-MM-DD
+  date_to?: string; // YYYY-MM-DD
+};
+
+export async function fetchCalls(
+  accessToken: string,
+  query: CallsQuery
+): Promise<CallListPage | null> {
+  const params = new URLSearchParams();
+  if (query.page && query.page > 1) params.set("page", String(query.page));
+  if (query.outcome) params.set("outcome", query.outcome);
+  if (query.intent) params.set("intent", query.intent);
+  if (query.search) params.set("search", query.search);
+  // Date inputs are day-granular; widen to inclusive day bounds for the API.
+  if (query.date_from) params.set("date_from", `${query.date_from}T00:00:00`);
+  if (query.date_to) params.set("date_to", `${query.date_to}T23:59:59`);
+
+  const qs = params.toString();
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/portal/calls${qs ? `?${qs}` : ""}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as CallListPage;
+  } catch {
+    return null;
+  }
+}
+
+export const getCalls = cache(fetchCalls);
