@@ -5,11 +5,14 @@ for direct access)."""
 
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
+from app.errors import api_error
 from app.middleware.auth import TenantContext, get_current_tenant
-from app.models.portal import CallListPage, DashboardSummary
+from app.models.portal import CallDetail, CallListPage, DashboardSummary
+from app.services.portal_call_detail import get_call_detail
 from app.services.portal_calls import list_tenant_calls
 from app.services.portal_dashboard import get_dashboard_summary
 
@@ -44,3 +47,14 @@ async def get_portal_calls(
         date_from=date_from,
         date_to=date_to,
     )
+
+
+@router.get("/calls/{call_id}", response_model=CallDetail)
+async def get_portal_call_detail(
+    call_id: UUID,
+    tenant_context: Annotated[TenantContext, Depends(get_current_tenant)],
+) -> CallDetail:
+    detail = await get_call_detail(tenant_context.tenant.id, call_id)
+    if detail is None:
+        raise api_error(404, "call_not_found", "Call not found")
+    return detail

@@ -59,3 +59,41 @@ class CallListPage(BaseModel):
     page: int
     page_size: int
     available_intents: list[str]
+
+
+class TranscriptMessage(BaseModel):
+    role: str
+    content: str
+    created_at: datetime
+    latency_ms: int | None = None
+
+
+class ToolDispatch(BaseModel):
+    tool_name: str
+    tool_args: dict | None = None
+    tool_result: dict | None = None
+    created_at: datetime
+
+
+class CallEscalation(BaseModel):
+    summary: str
+    urgency: str
+    created_at: datetime
+
+
+class CallDetail(BaseModel):
+    """Full per-call view for the portal (ticket 5.10)."""
+
+    id: UUID
+    from_number: str
+    started_at: datetime
+    ended_at: datetime | None = None
+    duration_secs: int | None = None
+    outcome: str | None = None
+    intent: str | None = None
+    summary: str | None = None
+    agent_name: str | None = None
+    recording_signed_url: str | None = None
+    transcript: list[TranscriptMessage]
+    tools: list[ToolDispatch]
+    escalation: CallEscalation | None = None

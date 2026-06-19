@@ -111,3 +111,61 @@ export async function fetchCalls(
 }
 
 export const getCalls = cache(fetchCalls);
+
+export type TranscriptMessage = {
+  role: string;
+  content: string;
+  created_at: string;
+  latency_ms: number | null;
+};
+
+export type ToolDispatch = {
+  tool_name: string;
+  tool_args: Record<string, unknown> | null;
+  tool_result: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type CallEscalation = {
+  summary: string;
+  urgency: string;
+  created_at: string;
+};
+
+export type CallDetail = {
+  id: string;
+  from_number: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_secs: number | null;
+  outcome: string | null;
+  intent: string | null;
+  summary: string | null;
+  agent_name: string | null;
+  recording_signed_url: string | null;
+  transcript: TranscriptMessage[];
+  tools: ToolDispatch[];
+  escalation: CallEscalation | null;
+};
+
+export async function fetchCallDetail(
+  accessToken: string,
+  callId: string
+): Promise<CallDetail | null> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/portal/calls/${callId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as CallDetail;
+  } catch {
+    return null;
+  }
+}
+
+export const getCallDetail = cache(fetchCallDetail);
