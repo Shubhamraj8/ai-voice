@@ -10,6 +10,7 @@ from app.routes import (
     internal_tenants,
     leads,
     me,
+    portal,
     pricing,
     twilio_media,
     twilio_webhooks,
@@ -21,6 +22,7 @@ api_router.include_router(me.router)
 api_router.include_router(pricing.router)
 api_router.include_router(leads.router)
 api_router.include_router(billing.router)
+api_router.include_router(portal.router)
 api_router.include_router(internal.router)
 api_router.include_router(internal_tenants.router)
 api_router.include_router(internal_agents.router)
