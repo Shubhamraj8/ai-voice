@@ -61,6 +61,31 @@ class CallListPage(BaseModel):
     available_intents: list[str]
 
 
+class BillingUsage(BaseModel):
+    cycle_start: date
+    cycle_end: date
+    minutes_used: float
+    included_minutes: int
+    overage_minutes: float
+    projected_minutes: float
+
+
+class BillingAccess(BaseModel):
+    paid_until: datetime | None = None
+    status: str
+    days_remaining: int | None = None
+    # none | active | expiring_soon | expired
+    expiry_state: str
+
+
+class BillingSummary(BaseModel):
+    """Read-only billing overview for the portal (ticket 5.11)."""
+
+    plan: PlanCard
+    usage: BillingUsage
+    access: BillingAccess
+
+
 class TranscriptMessage(BaseModel):
     role: str
     content: str

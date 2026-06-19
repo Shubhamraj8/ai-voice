@@ -169,3 +169,65 @@ export async function fetchCallDetail(
 }
 
 export const getCallDetail = cache(fetchCallDetail);
+
+export type BillingUsage = {
+  cycle_start: string;
+  cycle_end: string;
+  minutes_used: number;
+  included_minutes: number;
+  overage_minutes: number;
+  projected_minutes: number;
+};
+
+export type BillingAccess = {
+  paid_until: string | null;
+  status: string;
+  days_remaining: number | null;
+  expiry_state: "none" | "active" | "expiring_soon" | "expired";
+};
+
+export type BillingSummary = {
+  plan: PlanCard;
+  usage: BillingUsage;
+  access: BillingAccess;
+};
+
+export type BillingEvent = {
+  id: string;
+  tenant_id: string;
+  call_id: string | null;
+  event_type: "payment_recorded" | "usage_reported" | "access_extended" | "plan_changed";
+  units: number | null;
+  amount_inr: number | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export async function fetchBillingSummary(accessToken: string): Promise<BillingSummary | null> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/portal/billing`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as BillingSummary;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchBillingEvents(accessToken: string): Promise<BillingEvent[]> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/billing/events`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return [];
+    return (await response.json()) as BillingEvent[];
+  } catch {
+    return [];
+  }
+}
+
+export const getBillingSummary = cache(fetchBillingSummary);
+export const getBillingEvents = cache(fetchBillingEvents);
