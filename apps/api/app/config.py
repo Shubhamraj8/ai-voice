@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     exports_bucket: str = "exports"
     export_signed_url_ttl_s: int = 604800  # 7 days
 
+    # Error monitoring — Sentry (ticket 5.17). No-op when DSN is unset.
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.05
+    sentry_environment: str = ""
+    render_git_commit: str = ""  # release tag from the Render deploy
+
     # Embeddings + retrieval (tickets 4.03, 4.05)
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"

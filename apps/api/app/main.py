@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.db.pool import close_pool, create_pool
 from app.logging_config import configure_logging
 from app.middleware.request_id import RequestIdMiddleware
+from app.observability.sentry import init_sentry
 from app.routes import api_router
 from app.services.agent_sweeper import run_agent_sweeper
 from app.services.calls_reaper import run_stale_call_reaper
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    init_sentry()
     settings = get_settings()
     application = FastAPI(
         title="AI Voice API",
