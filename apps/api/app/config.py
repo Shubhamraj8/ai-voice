@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     sentry_environment: str = ""
     render_git_commit: str = ""  # release tag from the Render deploy
 
+    # PII scrubbing (ticket 5.18) — comma-separated allowlist + known names.
+    pii_allowed_email_domains: str = "zerqo.com"
+    pii_known_names: str = ""
+
     # Embeddings + retrieval (tickets 4.03, 4.05)
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"

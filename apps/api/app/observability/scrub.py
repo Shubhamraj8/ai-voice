@@ -1,18 +1,16 @@
-"""Sentry ``before_send`` PII scrubber (ticket 5.17).
+"""Sentry ``before_send`` scrubber (tickets 5.17, 5.18).
 
-Pure dict transform (no sentry_sdk import) so it's trivially testable. Walks the
-whole event and:
-
-- redacts values under sensitive keys (auth tokens, cookies, api keys, raw
-  embeddings, PDF/document content),
-- masks phone numbers anywhere in string values (caller numbers must never leak).
-
-The shared/extended PII pipeline is centralized in 5.18.
+Walks the whole event and (a) redacts values under sensitive keys (auth tokens,
+cookies, api keys, raw embeddings, PDF/document content), and (b) runs every
+string through the shared PII pipeline (``pii_scrub``) so phones, emails,
+Aadhaar/PAN ids, and cards never leak. Pure dict transform — no sentry_sdk import.
 """
 
 from __future__ import annotations
 
 import re
+
+from app.observability import pii_scrub
 
 _SENSITIVE_KEY = re.compile(
     r"(token|secret|password|api[_-]?key|apikey|authorization|cookie|"
@@ -21,34 +19,25 @@ _SENSITIVE_KEY = re.compile(
 )
 _REDACTED = "[Filtered]"
 
-# A run of 10+ digits (with spaces/dashes/parens/leading +) — phone-number-ish.
-_PHONE = re.compile(r"\+?\d[\d\s\-()]{8,}\d")
 
-
-def _mask_phone(match: re.Match[str]) -> str:
-    raw = match.group()
-    digits = re.sub(r"\D", "", raw)
-    if len(digits) < 10:
-        return raw
-    return f"XXXXX X{digits[-4:]}"
-
-
-def _scrub(value: object) -> object:
+def _scrub(value: object, allowed: set[str], names: list[str]) -> object:
     if isinstance(value, dict):
         out: dict = {}
         for key, val in value.items():
             if isinstance(key, str) and _SENSITIVE_KEY.search(key):
                 out[key] = _REDACTED
             else:
-                out[key] = _scrub(val)
+                out[key] = _scrub(val, allowed, names)
         return out
     if isinstance(value, (list, tuple)):
-        return [_scrub(item) for item in value]
+        return [_scrub(item, allowed, names) for item in value]
     if isinstance(value, str):
-        return _PHONE.sub(_mask_phone, value)
+        return pii_scrub.redact_text(value, allowed_domains=allowed, known_names=names)
     return value
 
 
 def scrub_event(event: dict, _hint: dict | None = None) -> dict:
-    """Sentry ``before_send`` hook: scrub PII from the event in place-ish."""
-    return _scrub(event)  # type: ignore[return-value]
+    """Sentry ``before_send`` hook: strip sensitive keys + redact PII everywhere."""
+    allowed = pii_scrub.default_allowed_domains()
+    names = pii_scrub.default_known_names()
+    return _scrub(event, allowed, names)  # type: ignore[return-value]

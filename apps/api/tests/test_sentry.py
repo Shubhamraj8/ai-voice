@@ -15,7 +15,7 @@ def test_scrub_masks_phone_numbers():
     }
     out = scrub_event(event)
     assert "9876543210" not in str(out)
-    assert out["extra"]["from_number"] == "XXXXX X3210"
+    assert out["extra"]["from_number"] == "[PHONE]"
 
 
 def test_scrub_redacts_sensitive_keys():
