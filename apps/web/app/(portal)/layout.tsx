@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMe } from "@/lib/api/me";
 import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 import { PortalShell } from "@/components/portal-dashboard/portal-shell";
+import { SentryContext } from "@/components/sentry-context";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -40,6 +41,7 @@ export default async function PortalLayout({ children }: { children: React.React
       email={user.email ?? me?.user.email ?? "user@tenant.local"}
       name={name}
     >
+      <SentryContext tenantId={me?.tenant.id} userId={me?.user.id ?? user.id} />
       {children}
     </PortalShell>
   );
