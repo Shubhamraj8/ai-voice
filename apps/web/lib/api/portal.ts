@@ -232,6 +232,29 @@ export async function fetchBillingEvents(accessToken: string): Promise<BillingEv
 export const getBillingSummary = cache(fetchBillingSummary);
 export const getBillingEvents = cache(fetchBillingEvents);
 
+export type ConsentDisclosure = {
+  text: string;
+  is_custom: boolean;
+  default_text: string;
+};
+
+export async function fetchConsentDisclosure(
+  accessToken: string
+): Promise<ConsentDisclosure | null> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/portal/consent`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ConsentDisclosure;
+  } catch {
+    return null;
+  }
+}
+
+export const getConsentDisclosure = cache(fetchConsentDisclosure);
+
 export async function requestDataExport(accessToken: string): Promise<boolean> {
   try {
     const response = await fetch(`${getApiBaseUrl()}/dpdp/export`, {

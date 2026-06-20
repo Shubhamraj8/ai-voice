@@ -61,6 +61,14 @@ class CallListPage(BaseModel):
     available_intents: list[str]
 
 
+class ConsentDisclosure(BaseModel):
+    """The disclosure spoken before recording on a tenant's calls (ticket 5.14)."""
+
+    text: str
+    is_custom: bool
+    default_text: str
+
+
 class BillingUsage(BaseModel):
     cycle_start: date
     cycle_end: date

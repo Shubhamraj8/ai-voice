@@ -15,8 +15,10 @@ from app.models.portal import (
     BillingSummary,
     CallDetail,
     CallListPage,
+    ConsentDisclosure,
     DashboardSummary,
 )
+from app.services.consent import get_consent_disclosure
 from app.services.portal_billing import get_billing_summary
 from app.services.portal_call_detail import get_call_detail
 from app.services.portal_calls import list_tenant_calls
@@ -60,6 +62,13 @@ async def get_portal_billing(
     tenant_context: Annotated[TenantContext, Depends(get_current_tenant)],
 ) -> BillingSummary:
     return await get_billing_summary(tenant_context.tenant)
+
+
+@router.get("/consent", response_model=ConsentDisclosure)
+async def get_portal_consent(
+    tenant_context: Annotated[TenantContext, Depends(get_current_tenant)],
+) -> ConsentDisclosure:
+    return await get_consent_disclosure(tenant_context.tenant.id)
 
 
 @router.get("/calls/{call_id}", response_model=CallDetail)

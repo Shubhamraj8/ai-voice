@@ -5,9 +5,17 @@ from xml.sax.saxutils import escape
 from app.config import Settings
 
 # Consent disclosure spoken before the AI agent connects (ticket 2.17).
-# English, ~3s when spoken. Per-market wording is a v2 enhancement.
-# NOTE: wording should be reviewed by legal before production use.
+# English, ~3s when spoken. DPDP §6 (notice of processing) sanity-check: states
+# the call is recorded and AI-assisted before any capture begins. Tenants in
+# other markets can override the wording (ticket 5.14); a legal pre-clearance of
+# the standard line is tracked for the v1.5 review.
 CONSENT_DISCLOSURE_TEXT = "This call may be recorded for quality and AI assistance."
+
+
+def effective_disclosure(override: str | None) -> str:
+    """The tenant's disclosure override, or the standard line (ticket 5.14)."""
+    text = (override or "").strip()
+    return text or CONSENT_DISCLOSURE_TEXT
 
 
 def build_media_stream_url(settings: Settings) -> str:
