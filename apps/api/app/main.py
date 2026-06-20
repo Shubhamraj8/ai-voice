@@ -10,9 +10,11 @@ from app.config import get_settings
 from app.db.pool import close_pool, create_pool
 from app.logging_config import configure_logging
 from app.middleware.request_id import RequestIdMiddleware
+from app.observability.sentry import init_sentry
 from app.routes import api_router
 from app.services.agent_sweeper import run_agent_sweeper
 from app.services.calls_reaper import run_stale_call_reaper
+from app.services.recording_retention import run_recording_retention
 from app.services.subscription_expiry import run_subscription_expiry
 from app.services.usage_aggregation import run_usage_aggregation
 
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     sweeper_task = asyncio.create_task(run_agent_sweeper())
     expiry_task = asyncio.create_task(run_subscription_expiry())
     usage_task = asyncio.create_task(run_usage_aggregation())
+    retention_task = asyncio.create_task(run_recording_retention())
     try:
         yield
     finally:
@@ -36,6 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sweeper_task.cancel()
         expiry_task.cancel()
         usage_task.cancel()
+        retention_task.cancel()
         with suppress(asyncio.CancelledError):
             await reaper_task
         with suppress(asyncio.CancelledError):
@@ -44,11 +48,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await expiry_task
         with suppress(asyncio.CancelledError):
             await usage_task
+        with suppress(asyncio.CancelledError):
+            await retention_task
         await close_pool(app.state.db_pool)
         logger.info("app_stopped")
 
 
 def create_app() -> FastAPI:
+    init_sentry()
     settings = get_settings()
     application = FastAPI(
         title="AI Voice API",

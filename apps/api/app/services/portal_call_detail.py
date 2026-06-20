@@ -92,7 +92,7 @@ async def get_call_detail(tenant_id: UUID, call_id: UUID) -> CallDetail | None:
             """
             SELECT c.id, c.from_number, c.started_at, c.ended_at, c.duration_secs,
                    c.outcome, c.intent, c.summary, c.recording_url,
-                   a.name AS agent_name
+                   c.recording_deleted_at, a.name AS agent_name
             FROM calls c
             LEFT JOIN agents a ON a.id = c.agent_id
             WHERE c.id = $1 AND c.tenant_id = $2
@@ -163,6 +163,7 @@ async def get_call_detail(tenant_id: UUID, call_id: UUID) -> CallDetail | None:
         summary=call["summary"],
         agent_name=call["agent_name"],
         recording_signed_url=recording_signed_url,
+        recording_expired=call["recording_deleted_at"] is not None,
         transcript=transcript,
         tools=tools,
         escalation=(

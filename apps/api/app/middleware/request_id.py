@@ -6,6 +6,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from app.observability.sentry import set_request_tags
+
 REQUEST_ID_HEADER = "X-Request-ID"
 
 
@@ -14,6 +16,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(request_id=request_id)
+        set_request_tags(request_id=request_id)
 
         response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request_id

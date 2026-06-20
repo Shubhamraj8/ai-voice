@@ -143,6 +143,7 @@ export type CallDetail = {
   summary: string | null;
   agent_name: string | null;
   recording_signed_url: string | null;
+  recording_expired: boolean;
   transcript: TranscriptMessage[];
   tools: ToolDispatch[];
   escalation: CallEscalation | null;
@@ -232,11 +233,59 @@ export async function fetchBillingEvents(accessToken: string): Promise<BillingEv
 export const getBillingSummary = cache(fetchBillingSummary);
 export const getBillingEvents = cache(fetchBillingEvents);
 
+export type ConsentDisclosure = {
+  text: string;
+  is_custom: boolean;
+  default_text: string;
+};
+
+export async function fetchConsentDisclosure(
+  accessToken: string
+): Promise<ConsentDisclosure | null> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/portal/consent`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ConsentDisclosure;
+  } catch {
+    return null;
+  }
+}
+
+export const getConsentDisclosure = cache(fetchConsentDisclosure);
+
 export async function requestDataExport(accessToken: string): Promise<boolean> {
   try {
     const response = await fetch(`${getApiBaseUrl()}/dpdp/export`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestAccountDeletion(accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/dpdp/delete`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function confirmAccountDeletion(token: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/dpdp/delete/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
     });
     return response.ok;
   } catch {

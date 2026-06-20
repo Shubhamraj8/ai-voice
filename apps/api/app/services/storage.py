@@ -129,6 +129,11 @@ async def delete_document(*, path: str) -> bool:
     return await _delete_object(bucket=get_settings().knowledge_bucket, path=path)
 
 
+async def delete_recording(*, path: str) -> bool:
+    """Delete a call recording from the recordings bucket (ticket 5.13)."""
+    return await _delete_object(bucket=get_settings().recordings_bucket, path=path)
+
+
 async def upload_export(*, path: str, data: bytes) -> bool:
     """Upload a DPDP data-export ZIP to the exports bucket (ticket 5.12)."""
     return await _upload_object(

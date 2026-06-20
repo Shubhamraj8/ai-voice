@@ -1,6 +1,17 @@
+import { createClient } from "@/lib/supabase/server";
+import { getConsentDisclosure } from "@/lib/api/portal";
+import { ConsentCard } from "@/components/portal-dashboard/settings/consent-card";
 import { DataExportCard } from "@/components/portal-dashboard/settings/data-export-card";
+import { DeleteAccountCard } from "@/components/portal-dashboard/settings/delete-account-card";
 
-export default function PortalSettingsPage() {
+export default async function PortalSettingsPage() {
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const consent = session?.access_token ? await getConsentDisclosure(session.access_token) : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,9 +29,23 @@ export default function PortalSettingsPage() {
 
       <div>
         <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-zerqo-muted">
+          Compliance
+        </p>
+        <ConsentCard disclosure={consent} />
+      </div>
+
+      <div>
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-zerqo-muted">
           Privacy &amp; data
         </p>
         <DataExportCard />
+      </div>
+
+      <div>
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-red-600">
+          Danger zone
+        </p>
+        <DeleteAccountCard />
       </div>
     </div>
   );

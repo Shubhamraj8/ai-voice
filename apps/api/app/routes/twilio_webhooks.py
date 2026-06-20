@@ -22,6 +22,7 @@ from app.webhooks.twilio_twiml import (
     build_media_stream_url,
     build_not_configured_twiml,
     build_voice_connect_twiml,
+    effective_disclosure,
 )
 
 logger = structlog.get_logger(__name__)
@@ -60,7 +61,10 @@ async def twilio_voice_webhook(
         )
 
     stream_url = build_media_stream_url(settings)
-    twiml = build_voice_connect_twiml(stream_url)
+    twiml = build_voice_connect_twiml(
+        stream_url,
+        disclosure_text=effective_disclosure(route.consent_disclosure_text),
+    )
 
     call_sid = params.get("CallSid", "")
     if call_sid:

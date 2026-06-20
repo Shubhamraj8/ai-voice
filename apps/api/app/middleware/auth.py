@@ -15,6 +15,7 @@ from app.db.pool import get_pool
 from app.errors import api_error
 from app.models.tenant import Tenant
 from app.models.user import TenantUserRole
+from app.observability.sentry import set_request_tags
 
 
 class User(BaseModel):
@@ -142,6 +143,7 @@ async def get_current_tenant(
         if isinstance(row_dict.get("provider_config"), str):
             row_dict["provider_config"] = json.loads(row_dict["provider_config"])
 
+        set_request_tags(tenant_id=row_dict["id"])
         return TenantContext(
             tenant=Tenant.model_validate(row_dict),
             role=TenantUserRole(row_dict["tu_role"]),

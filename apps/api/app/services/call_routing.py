@@ -25,6 +25,7 @@ class ResolvedRoute:
     stt: str
     tts: str
     llm: str
+    consent_disclosure_text: str | None = None
 
 
 async def resolve_agent_by_number(to_number: str) -> ResolvedRoute | None:
@@ -42,7 +43,8 @@ async def resolve_agent_by_number(to_number: str) -> ResolvedRoute | None:
                 SELECT a.id AS agent_id, a.tenant_id,
                        t.provider_config->>'stt' AS stt,
                        t.provider_config->>'tts' AS tts,
-                       t.provider_config->>'llm' AS llm
+                       t.provider_config->>'llm' AS llm,
+                       t.consent_disclosure_text AS consent_disclosure_text
                 FROM agents a
                 JOIN tenants t ON t.id = a.tenant_id
                 WHERE a.phone_number = $1
@@ -66,4 +68,5 @@ async def resolve_agent_by_number(to_number: str) -> ResolvedRoute | None:
         stt=row["stt"],
         tts=row["tts"],
         llm=row["llm"],
+        consent_disclosure_text=row.get("consent_disclosure_text"),
     )

@@ -1,0 +1,47 @@
+{
+  "_comment": "Shared PII scrub fixtures (ticket 5.18). Exercised by the backend test (apps/api/tests/test_pii_scrub.py); the frontend lib/pii-scrub.ts mirrors the same rules. expect_contains: substrings that MUST appear after scrubbing; expect_absent: substrings that MUST NOT.",
+  "cases": [
+    {
+      "name": "phone_e164",
+      "input": "please call me at +919876543210 today",
+      "expect_contains": ["[PHONE]"],
+      "expect_absent": ["9876543210"]
+    },
+    {
+      "name": "phone_indian_spaced",
+      "input": "my number is 98765 43210",
+      "expect_contains": ["[PHONE]"],
+      "expect_absent": ["43210"]
+    },
+    {
+      "name": "email_external",
+      "input": "reach rahul.kumar@gmail.com for details",
+      "expect_contains": ["[EMAIL]"],
+      "expect_absent": ["rahul.kumar@gmail.com"]
+    },
+    {
+      "name": "email_internal_allowlisted",
+      "input": "ticket owner is dev@zerqo.com",
+      "expect_contains": ["dev@zerqo.com"],
+      "expect_absent": ["[EMAIL]"]
+    },
+    {
+      "name": "aadhaar",
+      "input": "aadhaar number 1234 5678 9012 on file",
+      "expect_contains": ["[AADHAAR]"],
+      "expect_absent": ["1234 5678 9012"]
+    },
+    {
+      "name": "pan",
+      "input": "PAN is ABCDE1234F verified",
+      "expect_contains": ["[PAN]"],
+      "expect_absent": ["ABCDE1234F"]
+    },
+    {
+      "name": "credit_card_luhn",
+      "input": "paid with card 4111 1111 1111 1111 ending",
+      "expect_contains": ["[CARD]"],
+      "expect_absent": ["4111 1111 1111 1111"]
+    }
+  ]
+}

@@ -153,6 +153,14 @@ export function CallDetailView({ call }: { call: CallDetail }) {
             Your browser does not support audio playback.
           </audio>
         </Card>
+      ) : call.recording_expired ? (
+        <Card>
+          <h2 className="mb-2 text-base font-semibold tracking-tight text-zerqo-ink">Recording</h2>
+          <p className="text-sm text-zerqo-muted">
+            Recording expired — call audio is automatically removed after 30 days. The transcript is
+            kept below.
+          </p>
+        </Card>
       ) : null}
 
       {/* Escalation */}
