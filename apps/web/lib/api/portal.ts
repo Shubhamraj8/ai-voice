@@ -243,3 +243,28 @@ export async function requestDataExport(accessToken: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function requestAccountDeletion(accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/dpdp/delete`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function confirmAccountDeletion(token: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/dpdp/delete/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}

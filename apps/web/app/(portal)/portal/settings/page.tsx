@@ -1,4 +1,5 @@
 import { DataExportCard } from "@/components/portal-dashboard/settings/data-export-card";
+import { DeleteAccountCard } from "@/components/portal-dashboard/settings/delete-account-card";
 
 export default function PortalSettingsPage() {
   return (
@@ -21,6 +22,13 @@ export default function PortalSettingsPage() {
           Privacy &amp; data
         </p>
         <DataExportCard />
+      </div>
+
+      <div>
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-red-600">
+          Danger zone
+        </p>
+        <DeleteAccountCard />
       </div>
     </div>
   );

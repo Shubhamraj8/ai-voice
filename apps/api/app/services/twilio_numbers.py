@@ -100,3 +100,22 @@ async def release_number(number_sid: str) -> None:
         logger.error(
             "twilio_number_release_failed", number_sid=number_sid, error=str(exc)
         )
+
+
+async def clear_voice_webhook(number_sid: str) -> None:
+    """Detach our webhooks from a number on tenant deletion (5.13). The number is
+    retained (not released); a deleted tenant's calls simply stop reaching us.
+    Best-effort: failures are logged, never raised."""
+
+    def _clear() -> None:
+        _client().incoming_phone_numbers(number_sid).update(
+            voice_url="", status_callback=""
+        )
+
+    try:
+        await asyncio.to_thread(_clear)
+        logger.info("twilio_voice_webhook_cleared", number_sid=number_sid)
+    except Exception as exc:
+        logger.error(
+            "twilio_voice_webhook_clear_failed", number_sid=number_sid, error=str(exc)
+        )
