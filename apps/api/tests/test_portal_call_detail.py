@@ -18,6 +18,7 @@ def _call_row(**over):
         "intent": "appointment",
         "summary": "Booked a slot",
         "recording_url": "tenant/call.mp3",
+        "recording_deleted_at": None,
         "agent_name": "Front Desk",
     }
     base.update(over)
@@ -112,4 +113,24 @@ async def test_call_detail_no_recording_skips_signing(mock_db_pool, monkeypatch)
     detail = await pcd.get_call_detail(uuid.uuid4(), uuid.uuid4())
 
     assert detail.recording_signed_url is None
+    assert detail.recording_expired is False
+    signer.assert_not_awaited()
+
+
+async def test_call_detail_recording_expired(mock_db_pool, monkeypatch):
+    pool, conn = mock_db_pool
+    monkeypatch.setattr(pcd, "get_pool", lambda: pool)
+    signer = AsyncMock()
+    monkeypatch.setattr(pcd, "create_signed_url", signer)
+    # audio purged by the retention job: url nulled, recording_deleted_at set
+    conn.fetchrow.side_effect = [
+        _call_row(recording_url=None, recording_deleted_at=datetime.now(UTC)),
+        None,
+    ]
+    conn.fetch.return_value = []
+
+    detail = await pcd.get_call_detail(uuid.uuid4(), uuid.uuid4())
+
+    assert detail.recording_signed_url is None
+    assert detail.recording_expired is True
     signer.assert_not_awaited()

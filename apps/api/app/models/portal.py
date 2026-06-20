@@ -127,6 +127,7 @@ class CallDetail(BaseModel):
     summary: str | None = None
     agent_name: str | None = None
     recording_signed_url: str | None = None
+    recording_expired: bool = False
     transcript: list[TranscriptMessage]
     tools: list[ToolDispatch]
     escalation: CallEscalation | None = None

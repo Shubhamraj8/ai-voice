@@ -143,6 +143,7 @@ export type CallDetail = {
   summary: string | null;
   agent_name: string | null;
   recording_signed_url: string | null;
+  recording_expired: boolean;
   transcript: TranscriptMessage[];
   tools: ToolDispatch[];
   escalation: CallEscalation | null;
