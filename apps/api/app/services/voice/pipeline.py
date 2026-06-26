@@ -29,6 +29,7 @@ from pipecat.transports.websocket.fastapi import (
 from pipecat.turns.user_turn_strategies import ExternalUserTurnStrategies
 from pipecat.workers.runner import WorkerRunner
 
+from app.config import llm_key_present, selected_llm_provider
 from app.models.tenant import ProviderConfig
 from app.providers.registry import ensure_live_providers
 from app.services.calls import get_call_pipeline_context
@@ -197,6 +198,26 @@ def _build_deepseek_llm_service(settings: Settings):
     )
 
 
+def _build_gemini_llm_service(settings: Settings):
+    """Build Pipecat's native Google Gemini LLM service (Google AI Studio)."""
+
+    from pipecat.services.google.llm import GoogleLLMService
+
+    return GoogleLLMService(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        params=GoogleLLMService.InputParams(max_tokens=MAX_LLM_OUTPUT_TOKENS),
+    )
+
+
+def _build_llm_service(settings: Settings):
+    """Build the conversational LLM for the selected provider (DeepSeek/Gemini)."""
+
+    if selected_llm_provider(settings) == "gemini":
+        return _build_gemini_llm_service(settings)
+    return _build_deepseek_llm_service(settings)
+
+
 def _build_deepgram_only_pipeline(
     transport: FastAPIWebsocketTransport,
     settings: Settings,
@@ -276,7 +297,7 @@ def _build_conversation_pipeline(
         settings=_build_deepgram_stt_settings(),
     )
 
-    llm = _build_deepseek_llm_service(settings)
+    llm = _build_llm_service(settings)
 
     tts = DeepgramTTSService(
         api_key=settings.deepgram_api_key,
@@ -425,10 +446,10 @@ async def run_minimal_twilio_pipeline(
 
     call_id = call_data.get("call_id")
 
-    use_full_pipeline = bool(settings.deepgram_api_key and settings.deepseek_api_key)
+    use_full_pipeline = bool(settings.deepgram_api_key and llm_key_present(settings))
 
     use_deepgram_only = bool(
-        settings.deepgram_api_key and not settings.deepseek_api_key
+        settings.deepgram_api_key and not llm_key_present(settings)
     )
 
     use_hello_tone = not settings.deepgram_api_key

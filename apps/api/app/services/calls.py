@@ -16,6 +16,7 @@ from uuid import UUID
 
 import structlog
 
+from app.config import llm_key_present, selected_llm_provider
 from app.db.pool import get_pool
 
 if TYPE_CHECKING:
@@ -33,17 +34,19 @@ DEV_AGENT_ID = UUID("00000000-0000-0000-0000-000000000002")
 def build_provider_snapshot(settings: Settings) -> dict[str, str | None]:
     """Record which providers a call used, mirroring the pipeline branch logic.
 
-    The pipeline runs the full STT→LLM→TTS path only when both Deepgram and
-    DeepSeek keys are present; with just Deepgram it runs STT+TTS (no LLM).
+    The pipeline runs the full STT→LLM→TTS path only when Deepgram and the
+    selected LLM provider's key are present; with just Deepgram it runs STT+TTS
+    (no LLM).
     """
 
     has_deepgram = bool(settings.deepgram_api_key)
-    has_deepseek = bool(settings.deepseek_api_key)
+    has_llm = llm_key_present(settings)
+    llm = "gemini" if selected_llm_provider(settings) == "gemini" else "deepseek_native"
 
     return {
         "stt": "deepgram" if has_deepgram else None,
         "tts": "deepgram" if has_deepgram else None,
-        "llm": "deepseek_native" if (has_deepgram and has_deepseek) else None,
+        "llm": llm if (has_deepgram and has_llm) else None,
     }
 
 

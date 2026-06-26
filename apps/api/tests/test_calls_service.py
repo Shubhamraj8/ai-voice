@@ -10,7 +10,12 @@ from app.services import calls
 
 
 def _settings(*, deepgram: str = "", deepseek: str = "") -> SimpleNamespace:
-    return SimpleNamespace(deepgram_api_key=deepgram, deepseek_api_key=deepseek)
+    return SimpleNamespace(
+        deepgram_api_key=deepgram,
+        deepseek_api_key=deepseek,
+        llm_provider="deepseek",
+        gemini_api_key="",
+    )
 
 
 # --- build_provider_snapshot -------------------------------------------------

@@ -25,6 +25,9 @@ TWILIO_INDIA_INBOUND_PER_MIN = 0.0085
 # DeepSeek V4 Flash blended estimate. We don't yet track per-call tokens, so LLM
 # cost is ESTIMATED from transcript length; refine once token usage is captured.
 DEEPSEEK_PER_1K_TOKENS = 0.0003
+# Gemini 2.0 Flash blended estimate (paid tier). The free tier is $0; this keeps
+# COGS honest if a billed key is used.
+GEMINI_PER_1K_TOKENS = 0.0002
 CHARS_PER_TOKEN = 4
 
 
@@ -49,9 +52,13 @@ def telephony_cost(duration_secs: int | None) -> float:
 def llm_cost(provider: str | None, transcript_chars: int | None) -> float:
     """Estimate from transcript length until per-call token usage is tracked."""
 
-    if provider and provider.startswith("deepseek") and transcript_chars:
-        est_tokens = transcript_chars / CHARS_PER_TOKEN
+    if not transcript_chars:
+        return 0.0
+    est_tokens = transcript_chars / CHARS_PER_TOKEN
+    if provider and provider.startswith("deepseek"):
         return est_tokens / 1000 * DEEPSEEK_PER_1K_TOKENS
+    if provider == "gemini":
+        return est_tokens / 1000 * GEMINI_PER_1K_TOKENS
     return 0.0
 
 
