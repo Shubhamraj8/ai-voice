@@ -6,12 +6,14 @@ from app.routes import (
     health,
     internal,
     internal_agents,
+    internal_calls,
     internal_knowledge,
     internal_leads,
     internal_tenants,
     leads,
     me,
     portal,
+    portal_knowledge,
     pricing,
     twilio_media,
     twilio_webhooks,
@@ -24,10 +26,12 @@ api_router.include_router(pricing.router)
 api_router.include_router(leads.router)
 api_router.include_router(billing.router)
 api_router.include_router(portal.router)
+api_router.include_router(portal_knowledge.router)
 api_router.include_router(dpdp.router)
 api_router.include_router(internal.router)
 api_router.include_router(internal_tenants.router)
 api_router.include_router(internal_agents.router)
+api_router.include_router(internal_calls.router)
 api_router.include_router(internal_knowledge.router)
 api_router.include_router(internal_leads.router)
 api_router.include_router(twilio_webhooks.router)

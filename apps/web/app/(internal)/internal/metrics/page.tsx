@@ -1,5 +1,5 @@
-import { InternalPlaceholderPage } from "@/components/internal-dashboard";
+import { MetricsView } from "@/components/internal-dashboard/metrics-view";
 
 export default function InternalMetricsPage() {
-  return <InternalPlaceholderPage href="/internal/metrics" />;
+  return <MetricsView />;
 }
