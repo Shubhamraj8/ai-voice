@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-v4-flash"
     deepseek_timeout_s: float = 30.0
 
+    # LLM provider selection. "deepseek" (default) or "gemini" (Google AI Studio).
+    # Gemini has a free tier — set LLM_PROVIDER=gemini + GEMINI_API_KEY to use it.
+    llm_provider: str = "deepseek"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+
     # Call recording → Supabase Storage (ticket 2.14)
     recordings_bucket: str = "recordings"
     recording_signed_url_ttl_s: int = 3600
@@ -85,3 +91,17 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def selected_llm_provider(settings: Settings) -> str:
+    """The active conversational LLM: ``"gemini"`` or ``"deepseek"`` (default)."""
+    if (settings.llm_provider or "").strip().lower() in {"gemini", "google"}:
+        return "gemini"
+    return "deepseek"
+
+
+def llm_key_present(settings: Settings) -> bool:
+    """Whether the selected LLM provider has its API key configured."""
+    if selected_llm_provider(settings) == "gemini":
+        return bool(settings.gemini_api_key)
+    return bool(settings.deepseek_api_key)
