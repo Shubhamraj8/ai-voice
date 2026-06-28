@@ -2,7 +2,11 @@
 
 from types import SimpleNamespace
 
-from app.config import llm_key_present, selected_llm_provider
+from app.config import (
+    llm_key_present,
+    selected_embedding_provider,
+    selected_llm_provider,
+)
 from app.services.calls import build_provider_snapshot
 from app.services.cost_calculator import llm_cost
 
@@ -10,6 +14,7 @@ from app.services.cost_calculator import llm_cost
 def _settings(**over):
     base = dict(
         llm_provider="deepseek",
+        embedding_provider="openai",
         gemini_api_key="",
         deepseek_api_key="",
         deepgram_api_key="",
@@ -52,3 +57,13 @@ def test_llm_cost_handles_gemini():
     assert llm_cost("deepseek_native", 4000) > 0
     assert llm_cost("gemini", 0) == 0.0
     assert llm_cost(None, 4000) == 0.0
+
+
+def test_selected_embedding_provider():
+    assert selected_embedding_provider(_settings()) == "openai"
+    assert (
+        selected_embedding_provider(_settings(embedding_provider="gemini")) == "gemini"
+    )
+    assert (
+        selected_embedding_provider(_settings(embedding_provider="GOOGLE")) == "gemini"
+    )

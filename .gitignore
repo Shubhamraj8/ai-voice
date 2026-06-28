@@ -49,3 +49,7 @@ temp/
 
 # pnpm
 .pnpm-store/
+
+# Local test artifacts
+jiit-college.pdf
+*.local.pdf

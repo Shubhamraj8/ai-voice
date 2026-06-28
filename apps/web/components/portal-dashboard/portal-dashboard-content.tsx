@@ -5,6 +5,7 @@ import type { DashboardSummary, RecentCall } from "@/lib/api/portal";
 import { formatDate, formatDateTime, formatDuration, maskPhone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CallsChart } from "./calls-chart";
+import { OutboundCallCard } from "./outbound-call-card";
 
 type PortalDashboardContentProps = {
   summary: DashboardSummary | null;
@@ -293,6 +294,8 @@ export function PortalDashboardContent({
       </div>
 
       <StatTiles stats={summary.stats} />
+
+      <OutboundCallCard />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <ChartCard points={summary.calls_over_time} />

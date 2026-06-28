@@ -63,6 +63,27 @@ export async function fetchDashboardSummary(accessToken: string): Promise<Dashbo
 
 export const getDashboardSummary = cache(fetchDashboardSummary);
 
+export async function requestOutboundCall(
+  accessToken: string,
+  toNumber: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/portal/calls/outbound`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ to_number: toNumber }),
+    });
+    if (response.ok) return { ok: true };
+    const body = await response.json().catch(() => null);
+    return { ok: false, error: body?.detail?.message ?? body?.message ?? "Call failed" };
+  } catch {
+    return { ok: false, error: "Call failed" };
+  }
+}
+
 export type CallListPage = {
   items: RecentCall[];
   total: number;

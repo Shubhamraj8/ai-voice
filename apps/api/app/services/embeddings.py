@@ -8,9 +8,12 @@ calls raise only when an embedding is actually requested.
 
 from __future__ import annotations
 
+import asyncio
+import math
+
 import structlog
 
-from app.config import get_settings
+from app.config import get_settings, selected_embedding_provider
 
 logger = structlog.get_logger(__name__)
 
@@ -27,11 +30,49 @@ def _client():
     return AsyncOpenAI(api_key=settings.openai_api_key)
 
 
-async def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Embed a batch of strings, preserving order. Empty input → empty list."""
+def _normalize(vector: list[float]) -> list[float]:
+    """L2-normalize — Gemini truncated dims (output < 3072) aren't normalized."""
+    norm = math.sqrt(sum(x * x for x in vector)) or 1.0
+    return [x / norm for x in vector]
+
+
+async def _embed_gemini(texts: list[str], task_type: str) -> list[list[float]]:
+    from google import genai
+    from google.genai import types
+
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured")
+    client = genai.Client(api_key=settings.gemini_api_key)
+
+    def _call():
+        return client.models.embed_content(
+            model=settings.gemini_embedding_model,
+            contents=texts,
+            config=types.EmbedContentConfig(
+                output_dimensionality=EMBEDDING_DIM,
+                task_type=task_type,
+            ),
+        )
+
+    resp = await asyncio.to_thread(_call)
+    return [_normalize(list(e.values)) for e in resp.embeddings]
+
+
+async def embed_texts(
+    texts: list[str], *, task_type: str = "RETRIEVAL_DOCUMENT"
+) -> list[list[float]]:
+    """Embed a batch of strings, preserving order. Empty input → empty list.
+
+    ``task_type`` tunes the Gemini path (RETRIEVAL_DOCUMENT vs RETRIEVAL_QUERY);
+    it is ignored by OpenAI.
+    """
 
     if not texts:
         return []
+
+    if selected_embedding_provider(get_settings()) == "gemini":
+        return await _embed_gemini(texts, task_type)
 
     model = get_settings().openai_embedding_model
     resp = await _client().embeddings.create(model=model, input=texts)
@@ -40,10 +81,12 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
     return [item.embedding for item in items]
 
 
-async def embed_text(text: str) -> list[float]:
+async def embed_text(
+    text: str, *, task_type: str = "RETRIEVAL_DOCUMENT"
+) -> list[float]:
     """Embed a single string."""
 
-    vectors = await embed_texts([text])
+    vectors = await embed_texts([text], task_type=task_type)
     return vectors[0]
 
 
