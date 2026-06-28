@@ -62,8 +62,11 @@ class Settings(BaseSettings):
     pii_known_names: str = ""
 
     # Embeddings + retrieval (tickets 4.03, 4.05)
+    # Provider: "openai" (default) or "gemini" (uses GEMINI_API_KEY, 1536 dims).
+    embedding_provider: str = "openai"
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"
+    gemini_embedding_model: str = "gemini-embedding-001"
     embedding_cache_ttl_s: int = 300
 
     # Upstash Redis (REST) — query-embedding cache + tool rate limits (4.05, 4.12)
@@ -105,3 +108,10 @@ def llm_key_present(settings: Settings) -> bool:
     if selected_llm_provider(settings) == "gemini":
         return bool(settings.gemini_api_key)
     return bool(settings.deepseek_api_key)
+
+
+def selected_embedding_provider(settings: Settings) -> str:
+    """The active embedding provider: ``"gemini"`` or ``"openai"`` (default)."""
+    if (settings.embedding_provider or "").strip().lower() in {"gemini", "google"}:
+        return "gemini"
+    return "openai"

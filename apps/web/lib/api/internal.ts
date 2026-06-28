@@ -446,3 +446,56 @@ export async function updateLeadStatus(
     body: JSON.stringify({ status }),
   });
 }
+
+// --- Internal calls viewer ---------------------------------------------------
+
+export type InternalCallRow = {
+  id: string;
+  tenant_id: string;
+  tenant_name: string;
+  from_number: string | null;
+  started_at: string;
+  duration_secs: number | null;
+  outcome: string | null;
+  intent: string | null;
+};
+
+export type InternalCallsPage = {
+  items: InternalCallRow[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export async function fetchInternalCalls(
+  accessToken: string,
+  params?: { page?: number; tenant?: string; outcome?: string }
+): Promise<InternalCallsPage> {
+  const qs = new URLSearchParams();
+  if (params?.page && params.page > 1) qs.set("page", String(params.page));
+  if (params?.tenant) qs.set("tenant", params.tenant);
+  if (params?.outcome) qs.set("outcome", params.outcome);
+  const q = qs.toString();
+  return internalFetch(`/internal/calls${q ? `?${q}` : ""}`, accessToken);
+}
+
+// --- Internal metrics --------------------------------------------------------
+
+export type LatencyPercentile = { p50: number | null; p95: number | null; p99: number | null };
+
+export type PlatformMetrics = {
+  tenants: { total: number; active: number; paused: number; churned: number };
+  calls: { total: number; last_24h: number };
+  minutes_total: number;
+  latency: {
+    sample_size: number;
+    stt_ms: LatencyPercentile;
+    llm_ms: LatencyPercentile;
+    tts_first_byte_ms: LatencyPercentile;
+    total_ms: LatencyPercentile;
+  };
+};
+
+export async function fetchPlatformMetrics(accessToken: string): Promise<PlatformMetrics> {
+  return internalFetch(`/internal/metrics`, accessToken);
+}

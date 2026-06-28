@@ -46,14 +46,17 @@ async def twilio_voice_webhook(
 
     settings = get_settings()
 
-    # Resolve the dialed number to its tenant + agent (ticket 3.09).
-    to_number = params.get("To", "")
-    route = await resolve_agent_by_number(to_number)
+    # Inbound: a caller dials the agent's number (To). Outbound (we called the
+    # user): the agent's number is the From, the caller is the dialed To.
+    is_outbound = params.get("Direction", "") == "outbound-api"
+    agent_number = params.get("From", "") if is_outbound else params.get("To", "")
+    caller_number = params.get("To", "") if is_outbound else params.get("From", "")
+    route = await resolve_agent_by_number(agent_number)
 
     if route is None:
         logger.info(
             "twilio_voice_unconfigured",
-            to_number=to_number,
+            agent_number=agent_number,
             **log_fields(params, fields=VOICE_LOG_FIELDS),
         )
         return Response(
@@ -70,7 +73,7 @@ async def twilio_voice_webhook(
     if call_sid:
         await start_call(
             twilio_call_sid=call_sid,
-            from_number=params.get("From", ""),
+            from_number=caller_number,
             provider_snapshot={
                 "stt": route.stt,
                 "tts": route.tts,

@@ -14,7 +14,7 @@ from uuid import UUID
 
 import structlog
 
-from app.config import get_settings
+from app.config import get_settings, selected_embedding_provider
 from app.db.pool import get_pool
 from app.services import cache
 from app.services.embeddings import embed_text
@@ -35,7 +35,11 @@ class RetrievedChunk:
 
 
 def _cache_key(query: str) -> str:
-    model = get_settings().openai_embedding_model
+    settings = get_settings()
+    if selected_embedding_provider(settings) == "gemini":
+        model = settings.gemini_embedding_model
+    else:
+        model = settings.openai_embedding_model
     digest = hashlib.sha1(query.strip().encode("utf-8")).hexdigest()
     return f"emb:{model}:{digest}"
 
@@ -46,7 +50,7 @@ async def _embed_query_cached(query: str) -> list[float]:
     if isinstance(cached, list) and cached:
         return cached
 
-    embedding = await embed_text(query)
+    embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")
     await cache.set_json(key, embedding, ttl_s=get_settings().embedding_cache_ttl_s)
     return embedding
 

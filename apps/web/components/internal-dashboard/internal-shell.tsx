@@ -20,7 +20,7 @@ export function InternalShell({ role, email, name, children }: InternalShellProp
 
   return (
     <div className="flex min-h-screen font-sans antialiased">
-      <div className="hidden md:flex md:shrink-0">
+      <div className="hidden md:sticky md:top-0 md:flex md:h-screen md:shrink-0">
         <InternalSidebar role={role} />
       </div>
 

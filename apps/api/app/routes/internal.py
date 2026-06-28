@@ -14,6 +14,7 @@ from app.providers.deepgram_tts import VOICE_CATALOGUE, DeepgramTTS
 from app.services.agent_internal import validate_voice_id
 from app.services.audit import log_internal_action
 from app.services.audit_query import list_audit_log
+from app.services.internal_metrics import platform_metrics
 from app.services.metrics import latency_percentiles
 from app.services.voice import agent_registry
 
@@ -61,6 +62,25 @@ class LatencyStatsResponse(BaseModel):
     llm_ms: LatencyPercentile
     tts_first_byte_ms: LatencyPercentile
     total_ms: LatencyPercentile
+
+
+class TenantCounts(BaseModel):
+    total: int
+    active: int
+    paused: int
+    churned: int
+
+
+class CallCounts(BaseModel):
+    total: int
+    last_24h: int
+
+
+class PlatformMetricsResponse(BaseModel):
+    tenants: TenantCounts
+    calls: CallCounts
+    minutes_total: float
+    latency: LatencyStatsResponse
 
 
 class ActiveAgent(BaseModel):
@@ -122,6 +142,28 @@ async def internal_latency(
 ) -> LatencyStatsResponse:
     stats = await latency_percentiles()
     return LatencyStatsResponse(**stats)
+
+
+@router.get(
+    "/metrics",
+    response_model=PlatformMetricsResponse,
+    summary="Platform-wide KPIs",
+    description=(
+        "Requires an authenticated internal user. Tenant + call counts plus the "
+        "per-turn latency percentiles for the internal metrics page."
+    ),
+)
+async def internal_metrics(
+    _ctx: Annotated[InternalUserContext, Depends(require_internal_user)],
+) -> PlatformMetricsResponse:
+    counts = await platform_metrics()
+    stats = await latency_percentiles()
+    return PlatformMetricsResponse(
+        tenants=counts["tenants"],
+        calls=counts["calls"],
+        minutes_total=counts["minutes_total"],
+        latency=LatencyStatsResponse(**stats),
+    )
 
 
 @router.get(

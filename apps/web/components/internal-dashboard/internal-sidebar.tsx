@@ -71,10 +71,7 @@ export function InternalSidebar({ role, onNavigate, className }: InternalSidebar
       </nav>
 
       <div className="border-t border-white/10 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <span className="size-1.5 rounded-full bg-zerqo-orange" />
-          <p className="font-mono text-[11px] text-white/45">Phase 3 · Coming soon</p>
-        </div>
+        <p className="font-mono text-[11px] text-white/40">ZERQO · Internal</p>
       </div>
     </aside>
   );

@@ -1,5 +1,5 @@
-import { InternalPlaceholderPage } from "@/components/internal-dashboard";
+import { InternalCallsView } from "@/components/internal-dashboard/calls-view";
 
 export default function InternalCallsPage() {
-  return <InternalPlaceholderPage href="/internal/calls" />;
+  return <InternalCallsView />;
 }

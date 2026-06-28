@@ -35,6 +35,34 @@ def _transfer_twiml(to_number: str, bridge_message: str) -> str:
     )
 
 
+async def place_outbound_call(
+    *, to_number: str, from_number: str, voice_url: str
+) -> str | None:
+    """Place an outbound call from ``from_number`` to ``to_number``; Twilio fetches
+    TwiML from ``voice_url`` (the same voice webhook + pipeline as inbound).
+    Returns the Twilio CallSid, or None on failure."""
+
+    try:
+        call = await asyncio.to_thread(
+            lambda: _client().calls.create(
+                to=to_number,
+                from_=from_number,
+                url=voice_url,
+                method="POST",
+            )
+        )
+        logger.info(
+            "outbound_call_placed",
+            to=to_number,
+            from_=from_number,
+            call_sid=call.sid,
+        )
+        return call.sid
+    except Exception as exc:
+        logger.error("outbound_call_failed", to=to_number, error=str(exc))
+        return None
+
+
 async def transfer_call(call_sid: str, to_number: str, *, bridge_message: str) -> bool:
     """Redirect an in-progress call to ``to_number``. True on success."""
 
