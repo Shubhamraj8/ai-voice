@@ -21,6 +21,7 @@ An AI voice receptionist that takes every inbound phone call — **booking appoi
 ![Twilio](https://img.shields.io/badge/Twilio-F22F46?logo=twilio&logoColor=white)
 ![Deepgram](https://img.shields.io/badge/Deepgram-STT_%2B_TTS-13EF93?logoColor=black)
 ![DeepSeek](https://img.shields.io/badge/DeepSeek-V4_Flash-4D6BFE)
+![Gemini](https://img.shields.io/badge/Google_Gemini-LLM_%2B_embeddings-8E75FF?logo=googlegemini&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-RAG-336791?logo=postgresql&logoColor=white)
 ![Upstash](https://img.shields.io/badge/Upstash_Redis-00E9A3?logo=upstash&logoColor=black)
@@ -55,7 +56,7 @@ One generic agent design serves **clinics, restaurants, hotels, retail, and any 
 
 - 🌐 **Multi-tenant** — every business is isolated at the database level via Postgres Row-Level Security.
 - 🧠 **Knows your business** — upload PDFs; the agent answers grounded in your content (RAG), or says it doesn't know.
-- 🔌 **Provider-agnostic** — STT, TTS, and LLM swap per tenant behind protocol interfaces.
+- 🔌 **Provider-agnostic** — STT, TTS, LLM, and embeddings swap behind protocol interfaces (DeepSeek **or Gemini** for the LLM; OpenAI **or Gemini** for embeddings).
 - ⚡ **Fast** — sub-1.2s per-turn latency target, sub-800ms greeting on pickup.
 
 ---
@@ -65,13 +66,13 @@ One generic agent design serves **clinics, restaurants, hotels, retail, and any 
 ### 📞 Real-time voice pipeline
 
 - Inbound calls over **Twilio Media Streams** (bidirectional WebSocket audio).
-- **Deepgram Nova-3** STT → **DeepSeek V4 Flash** LLM → **Deepgram Aura** TTS, orchestrated by **Pipecat** inside FastAPI.
+- **Deepgram Nova-3** STT → **DeepSeek V4 Flash** (or **Google Gemini**) LLM → **Deepgram Aura** TTS, orchestrated by **Pipecat** inside FastAPI.
 - VAD-based **turn detection with barge-in**, a static sub-800ms greeting, and a recorded-call consent disclosure on pickup.
 - Per-call + per-turn persistence, latency metrics, call recording to Supabase Storage, and agent-process lifecycle management.
 
 ### 🧠 Business brain (RAG)
 
-- PDF ingestion: extract → chunk (tiktoken) → embed (**OpenAI `text-embedding-3-small`**) → store in **pgvector**.
+- PDF ingestion: extract → chunk (tiktoken) → embed (**OpenAI `text-embedding-3-small`** or **Gemini `gemini-embedding-001`**, 1536-dim) → store in **pgvector**.
 - Per-turn retrieval injects the most relevant chunks into the LLM context; the agent answers from them or gracefully says it can't.
 - Query embeddings cached in Redis; tenant-isolated retrieval (one tenant never sees another's content).
 
@@ -139,19 +140,26 @@ flowchart LR
 
 ## 🛠️ Tech stack
 
-| Layer              | Choice                                                      |
-| ------------------ | ----------------------------------------------------------- |
-| **Frontend**       | Next.js 14 (App Router), TypeScript, Tailwind, shadcn/ui    |
-| **Backend**        | Python 3.11, FastAPI, Pydantic v2, APScheduler              |
-| **Voice**          | Pipecat (self-hosted), Twilio Media Streams                 |
-| **Speech**         | Deepgram Nova-3 (STT) + Aura-1 (TTS)                        |
-| **LLM**            | DeepSeek V4 Flash (OpenAI-compatible), per-tenant swappable |
-| **Embeddings**     | OpenAI `text-embedding-3-small` (1536-dim)                  |
-| **Data**           | Supabase Postgres 15, pgvector, Supabase Auth + Storage     |
-| **Cache / limits** | Upstash Redis (REST)                                        |
-| **Email**          | Resend                                                      |
-| **Observability**  | Sentry, structlog, PostHog                                  |
-| **Infra**          | Vercel (web), Render (api), GitHub Actions CI               |
+| Layer              | Choice                                                                          |
+| ------------------ | ------------------------------------------------------------------------------- |
+| **Frontend**       | Next.js 14 (App Router), TypeScript, Tailwind, shadcn/ui                        |
+| **Backend**        | Python 3.11, FastAPI, Pydantic v2, APScheduler                                  |
+| **Voice**          | Pipecat (self-hosted), Twilio Media Streams                                     |
+| **Speech**         | Deepgram Nova-3 (STT) + Aura-1 (TTS)                                            |
+| **LLM**            | DeepSeek V4 Flash (default) or **Google Gemini** — swappable                    |
+| **Embeddings**     | OpenAI `text-embedding-3-small` or **Gemini** `gemini-embedding-001` (1536-dim) |
+| **Data**           | Supabase Postgres 15, pgvector, Supabase Auth + Storage                         |
+| **Cache / limits** | Upstash Redis (REST)                                                            |
+| **Email**          | Resend                                                                          |
+| **Observability**  | Sentry, structlog, PostHog                                                      |
+| **Infra**          | Vercel (web), Render (api), GitHub Actions CI                                   |
+
+> **Provider flexibility — run it on one free key.** The LLM and embedding providers
+> are env-swappable. Set `LLM_PROVIDER=gemini` + `EMBEDDING_PROVIDER=gemini` and a
+> single **Google Gemini** key powers both the conversational LLM _and_ the RAG
+> embeddings (output 1536-dim to match the pgvector column) — **no DeepSeek or
+> OpenAI key required**. Ideal for local dev/testing on Gemini's free tier, or as a
+> drop-in fallback when the default providers aren't configured.
 
 ---
 
