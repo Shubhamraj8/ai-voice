@@ -149,7 +149,7 @@ function PriceBlock({ plan, annual }) {
 
 function PricingCard({ plan, annual }) {
   const f = plan.featured;
-  const goSignup = () => openLeadDialog("pricing");
+  const goGetStarted = () => openLeadDialog("pricing");
   return (
     <div
       style={{
@@ -224,7 +224,7 @@ function PricingCard({ plan, annual }) {
       <M4.button
         whileHover={f ? { scale: 1.02 } : {}}
         whileTap={f ? { scale: 0.97 } : {}}
-        onClick={plan.cta === "Talk to our team" ? undefined : goSignup}
+        onClick={plan.cta === "Talk to our team" ? undefined : goGetStarted}
         onMouseEnter={(e) => {
           if (!f) {
             e.currentTarget.style.background = "#111";

@@ -843,7 +843,7 @@ function HowItWorks() {
     >
       <Eyebrow text="Setup process" />
       <Heading2 style={{ textAlign: "center" }}>
-        From signup to <span className="hl">first live call</span> in 30 minutes.
+        From setup to <span className="hl">first live call</span> in 30 minutes.
       </Heading2>
       <p style={{ fontSize: 18, lineHeight: 1.72, color: "#6B6560", marginTop: 20 }}>
         No engineers needed. No complex configuration. Upload your business info and go live in

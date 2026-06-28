@@ -16,9 +16,9 @@ To redesign the landing page later, edit files here only — the route at `app/(
 | `cta-footer.tsx`     | CTA banner, footer, scroll progress         |
 | `lib.tsx`            | Shared motion/UI helpers                    |
 | `index.css`          | Scoped styles (`.landing-page-root`)        |
-| `routes.ts`          | `/login` and `/signup` paths                |
+| `routes.ts`          | `/login` path (app sign-in)                 |
 | `seo.ts`             | Page metadata                               |
 
 ## CTAs
 
-Signup/login buttons route to `/signup` or `/login` per ticket acceptance criteria.
+The "Sign in" button routes to `/login`. "Get started" opens the lead-capture dialog — onboarding is sales-led, so there is no public self-serve signup.

@@ -104,12 +104,6 @@ function LoginForm() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in…" : "Sign in"}
             </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="font-medium text-foreground hover:underline">
-                Sign up
-              </Link>
-            </p>
             <p className="text-center text-xs text-muted-foreground">
               ZERQO staff?{" "}
               <Link href="/internal/login" className="font-medium text-foreground hover:underline">
