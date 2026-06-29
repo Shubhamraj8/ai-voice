@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # Gemini has a free tier — set LLM_PROVIDER=gemini + GEMINI_API_KEY to use it.
     llm_provider: str = "deepseek"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash"
 
     # Call recording → Supabase Storage (ticket 2.14)
     recordings_bucket: str = "recordings"
