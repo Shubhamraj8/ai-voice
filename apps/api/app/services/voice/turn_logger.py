@@ -37,7 +37,9 @@ logger = structlog.get_logger(__name__)
 SLOW_TURN_THRESHOLD_MS = 1500
 
 
-def _ttfb_ms(breakdown: LatencyBreakdown, *, keyword: str) -> int | None:
+def _ttfb_ms(breakdown: LatencyBreakdown | None, *, keyword: str) -> int | None:
+    if breakdown is None:
+        return None
     for metric in breakdown.ttfb:
         if keyword.lower() in metric.processor.lower():
             return round(metric.duration_secs * 1000)

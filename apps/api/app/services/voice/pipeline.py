@@ -206,7 +206,14 @@ def _build_gemini_llm_service(settings: Settings):
     return GoogleLLMService(
         api_key=settings.gemini_api_key,
         model=settings.gemini_model,
-        params=GoogleLLMService.InputParams(max_tokens=MAX_LLM_OUTPUT_TOKENS),
+        params=GoogleLLMService.InputParams(
+            max_tokens=MAX_LLM_OUTPUT_TOKENS,
+            # Gemini 2.5 defaults to "dynamic thinking", which spends the output
+            # token budget on hidden reasoning and returns an empty/truncated
+            # reply at our small MAX_LLM_OUTPUT_TOKENS. Disable it so the whole
+            # budget goes to the spoken answer (also lower latency for voice).
+            thinking=GoogleLLMService.ThinkingConfig(thinking_budget=0),
+        ),
     )
 
 

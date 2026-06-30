@@ -22,7 +22,10 @@ from app.services.embeddings import to_vector_literal as _to_vector_literal
 
 logger = structlog.get_logger(__name__)
 
-DEFAULT_THRESHOLD = 0.7
+# Gemini embeddings score on-topic matches ~0.55–0.70 (lower than OpenAI's), so a
+# 0.7 cutoff dropped clearly-relevant chunks and retrieval returned nothing. 0.5
+# keeps them; DEFAULT_LIMIT still caps how many chunks are injected per turn.
+DEFAULT_THRESHOLD = 0.5
 DEFAULT_LIMIT = 5
 
 
