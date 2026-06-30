@@ -36,21 +36,35 @@ def _transfer_twiml(to_number: str, bridge_message: str) -> str:
 
 
 async def place_outbound_call(
-    *, to_number: str, from_number: str, voice_url: str
+    *,
+    to_number: str,
+    from_number: str,
+    voice_url: str,
+    status_callback_url: str | None = None,
 ) -> str | None:
     """Place an outbound call from ``from_number`` to ``to_number``; Twilio fetches
     TwiML from ``voice_url`` (the same voice webhook + pipeline as inbound).
-    Returns the Twilio CallSid, or None on failure."""
+    Returns the Twilio CallSid, or None on failure.
+
+    When ``status_callback_url`` is given, Twilio posts there on call completion
+    so the call is closed with the real duration and the summary/cost jobs run
+    (mirrors the inbound number's status callback). Without it an outbound call is
+    only closed ~1h later by the stale-call reaper, yielding a bogus duration.
+    """
+
+    create_kwargs: dict[str, object] = {
+        "to": to_number,
+        "from_": from_number,
+        "url": voice_url,
+        "method": "POST",
+    }
+    if status_callback_url:
+        create_kwargs["status_callback"] = status_callback_url
+        create_kwargs["status_callback_event"] = ["completed"]
+        create_kwargs["status_callback_method"] = "POST"
 
     try:
-        call = await asyncio.to_thread(
-            lambda: _client().calls.create(
-                to=to_number,
-                from_=from_number,
-                url=voice_url,
-                method="POST",
-            )
-        )
+        call = await asyncio.to_thread(lambda: _client().calls.create(**create_kwargs))
         logger.info(
             "outbound_call_placed",
             to=to_number,

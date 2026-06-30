@@ -102,6 +102,7 @@ async def place_portal_outbound_call(
         to_number=body.to_number,
         from_number=agent["phone_number"],
         voice_url=f"{base}/webhooks/twilio/voice",
+        status_callback_url=f"{base}/webhooks/twilio/status",
     )
     if sid is None:
         raise api_error(502, "call_failed", "Could not place the call. Try again.")
