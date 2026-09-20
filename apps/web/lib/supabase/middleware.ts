@@ -41,29 +41,10 @@ export async function updateSession(request: NextRequest) {
 
   if (isClientLoginPath(pathname)) {
     if (user) {
-      const [{ data: tenantUser }, { data: internalUser }] = await Promise.all([
-        supabase
-          .from("tenant_users")
-          .select("user_id")
-          .eq("user_id", user.id)
-          .limit(1)
-          .maybeSingle(),
-        supabase.from("internal_users").select("user_id").eq("user_id", user.id).maybeSingle(),
-      ]);
-
-      if (internalUser && !tenantUser) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/internal/login";
-        url.search = "";
-        return NextResponse.redirect(url);
-      }
-
-      if (tenantUser) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/portal/dashboard";
-        url.search = "";
-        return NextResponse.redirect(url);
-      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/portal/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
     }
 
     return supabaseResponse;

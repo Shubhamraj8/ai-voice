@@ -54,38 +54,31 @@ async def list_tenant_calls(
     where = " AND ".join(conditions)
     offset = (page - 1) * page_size
 
+    # Prepare limit and offset params for rows query
+    rows_params = list(params)
+    limit_ph = f"${len(rows_params) + 1}"
+    offset_ph = f"${len(rows_params) + 2}"
+    rows_params.extend([page_size, offset])
+
     pool = get_pool()
-
-    async def _q_total():
-        async with pool.acquire() as conn:
-            return await conn.fetchval(
-                f"SELECT COUNT(*) FROM calls WHERE {where}", *params
-            )
-
-    limit_ph = add(page_size)
-    offset_ph = add(offset)
-
-    async def _q_rows():
-        async with pool.acquire() as conn:
-            return await conn.fetch(
+    async with pool.acquire() as conn:
+        total, rows, intent_rows = await asyncio.gather(
+            conn.fetchval(f"SELECT COUNT(*) FROM calls WHERE {where}", *params),
+            conn.fetch(
                 f"SELECT id, from_number, started_at, duration_secs, "
                 f"outcome, intent, summary "
                 f"FROM calls WHERE {where} "
                 f"ORDER BY started_at DESC LIMIT {limit_ph} OFFSET {offset_ph}",
-                *params,
-            )
-
-    async def _q_intents():
-        async with pool.acquire() as conn:
-            return await conn.fetch(
+                *rows_params,
+            ),
+            conn.fetch(
                 "SELECT DISTINCT intent FROM calls "
                 "WHERE tenant_id = $1 AND intent IS NOT NULL "
                 "ORDER BY intent LIMIT $2",
                 tenant_id,
                 MAX_INTENT_OPTIONS,
-            )
-
-    total, rows, intent_rows = await asyncio.gather(_q_total(), _q_rows(), _q_intents())
+            ),
+        )
 
     return CallListPage(
         items=[RecentCall(**dict(row)) for row in rows],

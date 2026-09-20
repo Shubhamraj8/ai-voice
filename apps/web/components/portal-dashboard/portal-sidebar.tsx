@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -16,13 +15,6 @@ type PortalSidebarProps = {
 
 export function PortalSidebar({ tenantName, role, onNavigate, className }: PortalSidebarProps) {
   const pathname = usePathname();
-  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
-
-  useEffect(() => {
-    setOptimisticPath(null);
-  }, [pathname]);
-
-  const currentPath = optimisticPath ?? pathname;
 
   return (
     <aside
@@ -51,7 +43,7 @@ export function PortalSidebar({ tenantName, role, onNavigate, className }: Porta
           Workspace
         </p>
         {portalNavItems.map((item) => {
-          const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
 
           return (
@@ -59,10 +51,7 @@ export function PortalSidebar({ tenantName, role, onNavigate, className }: Porta
               key={item.href}
               href={item.href}
               prefetch={true}
-              onClick={() => {
-                setOptimisticPath(item.href);
-                onNavigate?.();
-              }}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active

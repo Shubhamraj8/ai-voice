@@ -266,7 +266,7 @@ export async function fetchConsentDisclosure(
   try {
     const response = await fetch(`${getApiBaseUrl()}/portal/consent`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
+      next: { revalidate: 10 },
     });
     if (!response.ok) return null;
     return (await response.json()) as ConsentDisclosure;
