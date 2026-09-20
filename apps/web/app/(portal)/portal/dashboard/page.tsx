@@ -1,25 +1,26 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getMe } from "@/lib/api/me";
 import { getDashboardSummary } from "@/lib/api/portal";
 import { PortalDashboardContent } from "@/components/portal-dashboard";
+import DashboardLoading from "./loading";
 
-export default async function PortalDashboardPage() {
+async function DashboardDataFetcher() {
   const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = session?.user;
 
   const accessToken = session?.access_token;
+  const name =
+    typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
+
   const [me, summary] = await Promise.all([
     accessToken ? getMe(accessToken) : null,
     accessToken ? getDashboardSummary(accessToken) : null,
   ]);
 
-  const name =
-    typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
   const displayName = name?.trim() || me?.user.email?.split("@")[0] || "there";
   const businessName = me?.tenant.business_name ?? "Your workspace";
 
@@ -29,5 +30,13 @@ export default async function PortalDashboardPage() {
       displayName={displayName}
       businessName={businessName}
     />
+  );
+}
+
+export default function PortalDashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardDataFetcher />
+    </Suspense>
   );
 }

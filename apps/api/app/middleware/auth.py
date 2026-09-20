@@ -38,12 +38,12 @@ logger = structlog.get_logger(__name__)
 security = HTTPBearer(auto_error=False)
 
 JWKS_CACHE: dict[str, Any] = {"keys": {}, "expires_at": 0}
-JWKS_CACHE_TTL = 600  # 10 minutes
+JWKS_CACHE_TTL = 3600  # 1 hour
 
 
 async def fetch_jwks(supabase_url: str) -> dict:
     jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=5.0) as client:
         response = await client.get(jwks_url)
         response.raise_for_status()
         return response.json()
@@ -62,8 +62,12 @@ async def get_jwks() -> dict:
             JWKS_CACHE["expires_at"] = current_time + JWKS_CACHE_TTL
         except Exception as e:
             logger.error("jwks_fetch_failed", error=str(e))
-            if not JWKS_CACHE["keys"]:
-                raise api_error(500, "jwks_unavailable", "Failed to fetch JWKS")
+            if JWKS_CACHE["keys"]:
+                # Extend expired cache temporarily on network error to keep serving
+                # requests
+                JWKS_CACHE["expires_at"] = current_time + 60
+                return JWKS_CACHE["keys"]
+            raise api_error(500, "jwks_unavailable", "Failed to fetch JWKS")
 
     return JWKS_CACHE["keys"]
 

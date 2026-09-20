@@ -7,6 +7,7 @@ the SQL, so the dynamic WHERE clause is injection-safe.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from uuid import UUID
 
@@ -54,26 +55,37 @@ async def list_tenant_calls(
     offset = (page - 1) * page_size
 
     pool = get_pool()
-    async with pool.acquire() as conn:
-        total = await conn.fetchval(
-            f"SELECT COUNT(*) FROM calls WHERE {where}", *params
-        )
-        limit_ph = add(page_size)
-        offset_ph = add(offset)
-        rows = await conn.fetch(
-            f"SELECT id, from_number, started_at, duration_secs, "
-            f"outcome, intent, summary "
-            f"FROM calls WHERE {where} "
-            f"ORDER BY started_at DESC LIMIT {limit_ph} OFFSET {offset_ph}",
-            *params,
-        )
-        intent_rows = await conn.fetch(
-            "SELECT DISTINCT intent FROM calls "
-            "WHERE tenant_id = $1 AND intent IS NOT NULL "
-            "ORDER BY intent LIMIT $2",
-            tenant_id,
-            MAX_INTENT_OPTIONS,
-        )
+
+    async def _q_total():
+        async with pool.acquire() as conn:
+            return await conn.fetchval(
+                f"SELECT COUNT(*) FROM calls WHERE {where}", *params
+            )
+
+    limit_ph = add(page_size)
+    offset_ph = add(offset)
+
+    async def _q_rows():
+        async with pool.acquire() as conn:
+            return await conn.fetch(
+                f"SELECT id, from_number, started_at, duration_secs, "
+                f"outcome, intent, summary "
+                f"FROM calls WHERE {where} "
+                f"ORDER BY started_at DESC LIMIT {limit_ph} OFFSET {offset_ph}",
+                *params,
+            )
+
+    async def _q_intents():
+        async with pool.acquire() as conn:
+            return await conn.fetch(
+                "SELECT DISTINCT intent FROM calls "
+                "WHERE tenant_id = $1 AND intent IS NOT NULL "
+                "ORDER BY intent LIMIT $2",
+                tenant_id,
+                MAX_INTENT_OPTIONS,
+            )
+
+    total, rows, intent_rows = await asyncio.gather(_q_total(), _q_rows(), _q_intents())
 
     return CallListPage(
         items=[RecentCall(**dict(row)) for row in rows],

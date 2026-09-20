@@ -1,16 +1,20 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getConsentDisclosure } from "@/lib/api/portal";
 import { ConsentCard } from "@/components/portal-dashboard/settings/consent-card";
 import { DataExportCard } from "@/components/portal-dashboard/settings/data-export-card";
 import { DeleteAccountCard } from "@/components/portal-dashboard/settings/delete-account-card";
 
+async function ConsentSectionFetcher({ accessToken }: { accessToken: string | undefined }) {
+  const consent = accessToken ? await getConsentDisclosure(accessToken) : null;
+  return <ConsentCard disclosure={consent} />;
+}
+
 export default async function PortalSettingsPage() {
   const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
-
-  const consent = session?.access_token ? await getConsentDisclosure(session.access_token) : null;
 
   return (
     <div className="space-y-6">
@@ -31,7 +35,13 @@ export default async function PortalSettingsPage() {
         <p className="mb-3 font-mono text-[11px] uppercase tracking-wider text-zerqo-muted">
           Compliance
         </p>
-        <ConsentCard disclosure={consent} />
+        <Suspense
+          fallback={
+            <div className="h-32 animate-pulse rounded-2xl border border-zerqo-line bg-white shadow-sm" />
+          }
+        >
+          <ConsentSectionFetcher accessToken={session?.access_token} />
+        </Suspense>
       </div>
 
       <div>

@@ -7,37 +7,32 @@ import { SentryContext } from "@/components/sentry-context";
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirectToLogin("/portal");
-  }
-
-  const { data: tenantUser } = await supabase
-    .from("tenant_users")
-    .select("role")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (!tenantUser) {
-    redirectToLogin("/portal");
-  }
-
-  const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const me = session?.access_token ? await getMe(session.access_token) : null;
+  const user = session?.user;
+  if (!user || !session?.access_token) {
+    redirectToLogin("/portal");
+  }
 
+  const [tenantUserRes, me] = await Promise.all([
+    supabase.from("tenant_users").select("role").eq("user_id", user.id).limit(1).maybeSingle(),
+    getMe(session.access_token),
+  ]);
+
+  const tenantUser = tenantUserRes.data;
+  if (!tenantUser && !me) {
+    redirectToLogin("/portal");
+  }
+
+  const role = me?.role ?? tenantUser?.role ?? "member";
   const name =
     typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
 
   return (
     <PortalShell
       tenantName={me?.tenant.business_name ?? "Your workspace"}
-      role={me?.role ?? tenantUser.role}
+      role={role}
       email={user.email ?? me?.user.email ?? "user@tenant.local"}
       name={name}
     >

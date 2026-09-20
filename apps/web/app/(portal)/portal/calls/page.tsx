@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getCalls, type CallsQuery } from "@/lib/api/portal";
 import { PortalCallsView } from "@/components/portal-dashboard/calls/portal-calls-view";
+import CallsLoading from "./loading";
 
-export default async function PortalCallsPage({
+async function CallsDataFetcher({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -27,6 +29,17 @@ export default async function PortalCallsPage({
   };
 
   const data = session?.access_token ? await getCalls(session.access_token, query) : null;
-
   return <PortalCallsView data={data} query={query} />;
+}
+
+export default function PortalCallsPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  return (
+    <Suspense fallback={<CallsLoading />}>
+      <CallsDataFetcher searchParams={searchParams} />
+    </Suspense>
+  );
 }

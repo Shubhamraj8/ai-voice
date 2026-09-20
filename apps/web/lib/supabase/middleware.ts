@@ -32,11 +32,10 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session — must not run any logic between createServerClient and
-  // getUser() to avoid stale sessions.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const { pathname } = request.nextUrl;
 
@@ -82,22 +81,6 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
     }
-
-    const [{ data: tenantUser }, { data: internalUser }] = await Promise.all([
-      supabase.from("tenant_users").select("user_id").eq("user_id", user.id).limit(1).maybeSingle(),
-      supabase.from("internal_users").select("user_id").eq("user_id", user.id).maybeSingle(),
-    ]);
-
-    if (!tenantUser) {
-      if (internalUser) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/internal/tenants";
-        url.search = "";
-        return NextResponse.redirect(url);
-      }
-      return NextResponse.redirect(buildLoginRedirectUrl(request, pathname));
-    }
-
     return supabaseResponse;
   }
 
@@ -105,21 +88,6 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       return NextResponse.redirect(buildInternalLoginRedirectUrl(request, pathname));
     }
-
-    const { data: internalUser } = await supabase
-      .from("internal_users")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!internalUser) {
-      const url = buildInternalLoginRedirectUrl(request, pathname);
-      if (user) {
-        url.searchParams.set("denied", "1");
-      }
-      return NextResponse.redirect(url);
-    }
-
     return supabaseResponse;
   }
 

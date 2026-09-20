@@ -6,6 +6,7 @@ separately by the billing-events read API (5.07)."""
 
 from __future__ import annotations
 
+import asyncio
 import calendar
 from datetime import UTC, datetime, time, timedelta
 
@@ -29,17 +30,24 @@ async def get_billing_summary(tenant: Tenant) -> BillingSummary:
     month_start = datetime.combine(cycle_start, time.min, tzinfo=UTC)
 
     pool = get_pool()
-    async with pool.acquire() as conn:
-        minutes_used = await conn.fetchval(
-            "SELECT COALESCE(SUM(duration_secs), 0) / 60.0 FROM calls "
-            "WHERE tenant_id = $1 AND started_at >= $2",
-            tenant.id,
-            month_start,
-        )
-        plan_row = await conn.fetchrow(
-            "SELECT name, included_minutes FROM pricing_plans WHERE key = $1",
-            tenant.plan,
-        )
+
+    async def _q_minutes():
+        async with pool.acquire() as conn:
+            return await conn.fetchval(
+                "SELECT COALESCE(SUM(duration_secs), 0) / 60.0 FROM calls "
+                "WHERE tenant_id = $1 AND started_at >= $2",
+                tenant.id,
+                month_start,
+            )
+
+    async def _q_plan():
+        async with pool.acquire() as conn:
+            return await conn.fetchrow(
+                "SELECT name, included_minutes FROM pricing_plans WHERE key = $1",
+                tenant.plan,
+            )
+
+    minutes_used, plan_row = await asyncio.gather(_q_minutes(), _q_plan())
 
     minutes_used = round(float(minutes_used or 0), 1)
     included = int(plan_row["included_minutes"]) if plan_row else 0
