@@ -78,9 +78,13 @@ export async function requestOutboundCall(
     });
     if (response.ok) return { ok: true };
     const body = await response.json().catch(() => null);
-    return { ok: false, error: body?.detail?.message ?? body?.message ?? "Call failed" };
+    const errorMsg =
+      typeof body?.detail === "string"
+        ? body.detail
+        : (body?.detail?.message ?? body?.message ?? "Call failed");
+    return { ok: false, error: errorMsg };
   } catch {
-    return { ok: false, error: "Call failed" };
+    return { ok: false, error: "Call failed to connect" };
   }
 }
 

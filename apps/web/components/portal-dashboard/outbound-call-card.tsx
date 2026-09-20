@@ -20,9 +20,30 @@ export function OutboundCallCard() {
     setError(null);
 
     const supabase = createClient();
-    const {
+    let {
       data: { session },
     } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      const refreshed = await supabase.auth.refreshSession();
+      session = refreshed.data.session;
+    } else {
+      try {
+        const parts = session.access_token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now() + 30000) {
+            const refreshed = await supabase.auth.refreshSession();
+            if (refreshed.data.session) {
+              session = refreshed.data.session;
+            }
+          }
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+
     if (!session?.access_token) {
       setStatus("error");
       setError("Your session expired — please refresh.");
