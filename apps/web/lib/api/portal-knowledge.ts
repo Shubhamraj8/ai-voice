@@ -16,7 +16,7 @@ export async function fetchPortalKnowledge(accessToken: string): Promise<Knowled
   try {
     const response = await fetch(`${getApiBaseUrl()}/portal/knowledge`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 10 },
+      cache: "no-store",
     });
     if (!response.ok) return [];
     return (await response.json()) as KnowledgeDoc[];

@@ -48,7 +48,7 @@ export async function fetchDashboardSummary(accessToken: string): Promise<Dashbo
   try {
     const response = await fetch(`${getApiBaseUrl()}/portal/dashboard`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 10 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -118,7 +118,7 @@ export async function fetchCalls(
   try {
     const response = await fetch(`${getApiBaseUrl()}/portal/calls${qs ? `?${qs}` : ""}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 10 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -229,7 +229,7 @@ export async function fetchBillingSummary(accessToken: string): Promise<BillingS
   try {
     const response = await fetch(`${getApiBaseUrl()}/portal/billing`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 10 },
+      cache: "no-store",
     });
     if (!response.ok) return null;
     return (await response.json()) as BillingSummary;
@@ -266,7 +266,7 @@ export async function fetchConsentDisclosure(
   try {
     const response = await fetch(`${getApiBaseUrl()}/portal/consent`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 10 },
+      cache: "no-store",
     });
     if (!response.ok) return null;
     return (await response.json()) as ConsentDisclosure;

@@ -24,7 +24,7 @@ export async function fetchMe(accessToken: string): Promise<MeResponse | null> {
   try {
     const response = await fetch(`${getApiBaseUrl()}/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      next: { revalidate: 30 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
