@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { getPortalSession } from "@/lib/supabase/server";
 import { getCalls, type CallsQuery } from "@/lib/api/portal";
 import { PortalCallsView } from "@/components/portal-dashboard/calls/portal-calls-view";
 import CallsLoading from "./loading";
@@ -9,10 +9,7 @@ async function CallsDataFetcher({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getPortalSession();
 
   const get = (key: string) => {
     const value = searchParams[key];

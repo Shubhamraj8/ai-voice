@@ -8,7 +8,6 @@ card. Aggregations use UTC month/day boundaries to match the billing rollup
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime, time, timedelta
 
 import structlog
@@ -39,52 +38,66 @@ async def get_dashboard_summary(tenant: Tenant) -> DashboardSummary:
 
     pool = get_pool()
     async with pool.acquire() as conn:
-        month, escalations, knowledge, plan_row, series_rows, recent_rows = (
-            await asyncio.gather(
-                conn.fetchrow(
-                    "SELECT COUNT(*) AS calls,"
-                    " COALESCE(SUM(duration_secs), 0) / 60.0 AS minutes"
-                    " FROM calls WHERE tenant_id = $1 AND started_at >= $2",
-                    tenant.id,
-                    month_start,
-                ),
-                conn.fetchval(
-                    "SELECT COUNT(*) FROM escalations"
-                    " WHERE tenant_id = $1 AND created_at >= $2",
-                    tenant.id,
-                    month_start,
-                ),
-                conn.fetchrow(
-                    "SELECT COUNT(*) AS documents, "
-                    "COUNT(*) FILTER (WHERE status = 'ready') AS ready, "
-                    "MAX(uploaded_at) AS last_upload "
-                    "FROM knowledge_documents WHERE tenant_id = $1",
-                    tenant.id,
-                ),
-                conn.fetchrow(
-                    "SELECT name, included_minutes FROM pricing_plans WHERE key = $1",
-                    tenant.plan,
-                ),
-                conn.fetch(
-                    "SELECT (started_at AT TIME ZONE 'UTC')::date AS day,"
-                    " COUNT(*) AS count"
-                    " FROM calls WHERE tenant_id = $1 AND started_at >= $2"
-                    " GROUP BY day",
-                    tenant.id,
-                    window_start,
-                ),
-                conn.fetch(
-                    "SELECT id, from_number, started_at, duration_secs,"
-                    " outcome, intent, summary"
-                    " FROM calls WHERE tenant_id = $1"
-                    " ORDER BY started_at DESC LIMIT $2",
-                    tenant.id,
-                    RECENT_CALLS_LIMIT,
-                ),
-            )
+        month = await conn.fetchrow(
+            """
+            SELECT COUNT(*) AS calls,
+                   COALESCE(SUM(duration_secs), 0) / 60.0 AS minutes
+            FROM calls
+            WHERE tenant_id = $1 AND started_at >= $2
+            """,
+            tenant.id,
+            month_start,
+        )
+        knowledge = await conn.fetchrow(
+            """
+            SELECT COUNT(*) AS documents,
+                   COUNT(*) FILTER (WHERE status = 'ready') AS ready,
+                   MAX(uploaded_at) AS last_upload
+            FROM knowledge_documents
+            WHERE tenant_id = $1
+            """,
+            tenant.id,
+        )
+        plan_row = await conn.fetchrow(
+            """
+            SELECT name, included_minutes
+            FROM pricing_plans
+            WHERE key = $1
+            """,
+            tenant.plan,
+        )
+        escalations = await conn.fetchval(
+            """
+            SELECT COUNT(*)
+            FROM escalations
+            WHERE tenant_id = $1 AND created_at >= $2
+            """,
+            tenant.id,
+            month_start,
+        )
+        series_rows = await conn.fetch(
+            """
+            SELECT (started_at AT TIME ZONE 'UTC')::date AS day, COUNT(*) AS count
+            FROM calls
+            WHERE tenant_id = $1 AND started_at >= $2
+            GROUP BY day
+            """,
+            tenant.id,
+            window_start,
+        )
+        recent_rows = await conn.fetch(
+            """
+            SELECT id, from_number, started_at, duration_secs,
+                   outcome, intent, summary
+            FROM calls
+            WHERE tenant_id = $1
+            ORDER BY started_at DESC
+            LIMIT $2
+            """,
+            tenant.id,
+            RECENT_CALLS_LIMIT,
         )
 
-    # Fill missing days with 0 so the chart is a contiguous 14-day window.
     counts = {row["day"]: row["count"] for row in series_rows}
     calls_over_time = [
         CallPoint(
@@ -94,21 +107,25 @@ async def get_dashboard_summary(tenant: Tenant) -> DashboardSummary:
         for i in range(CHART_DAYS)
     ]
 
-    included_minutes = int(plan_row["included_minutes"]) if plan_row else 0
+    included_minutes = (
+        int(plan_row["included_minutes"])
+        if plan_row and plan_row["included_minutes"] is not None
+        else 0
+    )
 
     return DashboardSummary(
         stats=DashboardStats(
-            calls_this_month=month["calls"] or 0,
-            minutes_used=round(float(month["minutes"] or 0), 1),
+            calls_this_month=month["calls"] if month else 0,
+            minutes_used=round(float(month["minutes"] or 0), 1) if month else 0.0,
             minutes_included=included_minutes,
             escalations_this_month=escalations or 0,
         ),
         calls_over_time=calls_over_time,
         recent_calls=[RecentCall(**dict(row)) for row in recent_rows],
         knowledge=KnowledgeStatus(
-            document_count=knowledge["documents"] or 0,
-            ready_count=knowledge["ready"] or 0,
-            last_upload=knowledge["last_upload"],
+            document_count=knowledge["documents"] if knowledge else 0,
+            ready_count=knowledge["ready"] if knowledge else 0,
+            last_upload=knowledge["last_upload"] if knowledge else None,
         ),
         plan=PlanCard(
             key=tenant.plan,

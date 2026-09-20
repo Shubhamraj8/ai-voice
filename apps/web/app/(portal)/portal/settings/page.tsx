@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { getPortalSession } from "@/lib/supabase/server";
 import { getConsentDisclosure } from "@/lib/api/portal";
 import { ConsentCard } from "@/components/portal-dashboard/settings/consent-card";
 import { DataExportCard } from "@/components/portal-dashboard/settings/data-export-card";
@@ -11,10 +11,7 @@ async function ConsentSectionFetcher({ accessToken }: { accessToken: string | un
 }
 
 export default async function PortalSettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getPortalSession();
 
   return (
     <div className="space-y-6">

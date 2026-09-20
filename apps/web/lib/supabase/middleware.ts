@@ -32,13 +32,38 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Must use getUser() (not getSession()) here so that Supabase
-  // refreshes expired tokens and writes fresh cookies back to the response.
-  // getSession() only reads cookies without validating/refreshing the token,
-  // which causes downstream API calls to fail with stale access tokens.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  let user = session?.user ?? null;
+
+  // Fast-path: if session token is valid and not expiring in next 30s,
+  // skip remote Supabase Auth network call to keep navigation instant (0ms delay).
+  if (session?.access_token) {
+    try {
+      const parts = session.access_token.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
+        if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now() + 30000) {
+          // Token is expired or about to expire -> call getUser() to refresh cookies
+          const {
+            data: { user: refreshedUser },
+          } = await supabase.auth.getUser();
+          user = refreshedUser;
+        }
+      }
+    } catch {
+      const {
+        data: { user: refreshedUser },
+      } = await supabase.auth.getUser();
+      user = refreshedUser;
+    }
+  } else {
+    const {
+      data: { user: refreshedUser },
+    } = await supabase.auth.getUser();
+    user = refreshedUser;
+  }
 
   const { pathname } = request.nextUrl;
 

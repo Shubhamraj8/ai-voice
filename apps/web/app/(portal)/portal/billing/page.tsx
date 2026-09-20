@@ -1,15 +1,12 @@
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { getPortalSession } from "@/lib/supabase/server";
 import { getMe } from "@/lib/api/me";
 import { getBillingEvents, getBillingSummary } from "@/lib/api/portal";
 import { BillingView } from "@/components/portal-dashboard/billing/billing-view";
 import BillingLoading from "./loading";
 
 async function BillingDataFetcher() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getPortalSession();
   const accessToken = session?.access_token;
 
   const [me, summary, events] = await Promise.all([

@@ -1,15 +1,12 @@
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { getPortalSession } from "@/lib/supabase/server";
 import { getMe } from "@/lib/api/me";
 import { getDashboardSummary } from "@/lib/api/portal";
 import { PortalDashboardContent } from "@/components/portal-dashboard";
 import DashboardLoading from "./loading";
 
 async function DashboardDataFetcher() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getPortalSession();
   const user = session?.user;
 
   const accessToken = session?.access_token;

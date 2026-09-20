@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getPortalSession } from "@/lib/supabase/server";
 import { getMe } from "@/lib/api/me";
 import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 import { PortalShell } from "@/components/portal-dashboard/portal-shell";
@@ -6,9 +6,7 @@ import { SentryContext } from "@/components/sentry-context";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getPortalSession();
 
   const user = session?.user;
   if (!user || !session?.access_token) {

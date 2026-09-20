@@ -7,7 +7,6 @@ the SQL, so the dynamic WHERE clause is injection-safe.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from uuid import UUID
 
@@ -54,30 +53,26 @@ async def list_tenant_calls(
     where = " AND ".join(conditions)
     offset = (page - 1) * page_size
 
-    # Prepare limit and offset params for rows query
-    rows_params = list(params)
-    limit_ph = f"${len(rows_params) + 1}"
-    offset_ph = f"${len(rows_params) + 2}"
-    rows_params.extend([page_size, offset])
-
     pool = get_pool()
     async with pool.acquire() as conn:
-        total, rows, intent_rows = await asyncio.gather(
-            conn.fetchval(f"SELECT COUNT(*) FROM calls WHERE {where}", *params),
-            conn.fetch(
-                f"SELECT id, from_number, started_at, duration_secs, "
-                f"outcome, intent, summary "
-                f"FROM calls WHERE {where} "
-                f"ORDER BY started_at DESC LIMIT {limit_ph} OFFSET {offset_ph}",
-                *rows_params,
-            ),
-            conn.fetch(
-                "SELECT DISTINCT intent FROM calls "
-                "WHERE tenant_id = $1 AND intent IS NOT NULL "
-                "ORDER BY intent LIMIT $2",
-                tenant_id,
-                MAX_INTENT_OPTIONS,
-            ),
+        total = await conn.fetchval(
+            f"SELECT COUNT(*) FROM calls WHERE {where}", *params
+        )
+        limit_ph = add(page_size)
+        offset_ph = add(offset)
+        rows = await conn.fetch(
+            f"SELECT id, from_number, started_at, duration_secs, "
+            f"outcome, intent, summary "
+            f"FROM calls WHERE {where} "
+            f"ORDER BY started_at DESC LIMIT {limit_ph} OFFSET {offset_ph}",
+            *params,
+        )
+        intent_rows = await conn.fetch(
+            "SELECT DISTINCT intent FROM calls "
+            "WHERE tenant_id = $1 AND intent IS NOT NULL "
+            "ORDER BY intent LIMIT $2",
+            tenant_id,
+            MAX_INTENT_OPTIONS,
         )
 
     return CallListPage(

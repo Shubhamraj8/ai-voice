@@ -1,13 +1,10 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getPortalSession } from "@/lib/supabase/server";
 import { getCallDetail } from "@/lib/api/portal";
 import { CallDetailView } from "@/components/portal-dashboard/calls/call-detail-view";
 
 export default async function PortalCallDetailPage({ params }: { params: { id: string } }) {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getPortalSession();
 
   const call = session?.access_token ? await getCallDetail(session.access_token, params.id) : null;
 
