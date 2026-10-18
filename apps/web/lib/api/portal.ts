@@ -67,8 +67,9 @@ export async function requestOutboundCall(
   accessToken: string,
   toNumber: string
 ): Promise<{ ok: boolean; error?: string }> {
+  const baseUrl = getApiBaseUrl();
   try {
-    const response = await fetch(`${getApiBaseUrl()}/portal/calls/outbound`, {
+    const response = await fetch(`${baseUrl}/portal/calls/outbound`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -81,10 +82,13 @@ export async function requestOutboundCall(
     const errorMsg =
       typeof body?.detail === "string"
         ? body.detail
-        : (body?.detail?.message ?? body?.message ?? "Call failed");
+        : (body?.detail?.message ?? body?.message ?? "Could not place outbound call.");
     return { ok: false, error: errorMsg };
   } catch {
-    return { ok: false, error: "Call failed to connect" };
+    return {
+      ok: false,
+      error: `Could not reach backend API at ${baseUrl}. Please ensure the API server is running.`,
+    };
   }
 }
 

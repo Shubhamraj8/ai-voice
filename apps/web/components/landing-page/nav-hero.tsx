@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { EASE_OUT_EXPO, Eyebrow, Icon, Star } from "./lib";
 import { landingRoutes } from "./routes";
@@ -149,22 +150,24 @@ function Nav() {
         {/* right */}
         {!mobile ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
+            <Link
+              href={landingRoutes.login}
               style={{
-                border: "none",
-                background: "transparent",
+                textDecoration: "none",
                 fontSize: 14,
                 fontWeight: 500,
                 color: "#6B6560",
                 cursor: "pointer",
                 transition: "color 150ms",
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "8px 12px",
               }}
-              onClick={() => router.push(landingRoutes.login)}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#111111")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6B6560")}
             >
               Sign in
-            </button>
+            </Link>
             <M.button
               onClick={() => openLeadDialog("landing")}
               whileHover={{ scale: 1.03, backgroundColor: "#F04E00" }}
@@ -250,8 +253,9 @@ function Nav() {
               </button>
             ))}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 18 }}>
-              <button
-                onClick={() => router.push(landingRoutes.login)}
+              <Link
+                href={landingRoutes.login}
+                onClick={() => setMenuOpen(false)}
                 style={{
                   border: "1px solid #E8E3DE",
                   background: "#fff",
@@ -261,10 +265,13 @@ function Nav() {
                   fontWeight: 600,
                   color: "#111",
                   cursor: "pointer",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  display: "block",
                 }}
               >
                 Sign in
-              </button>
+              </Link>
               <button
                 onClick={() => openLeadDialog("landing")}
                 style={{

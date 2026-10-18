@@ -32,7 +32,7 @@ from app.services.portal_billing import get_billing_summary
 from app.services.portal_call_detail import get_call_detail
 from app.services.portal_calls import list_tenant_calls
 from app.services.portal_dashboard import get_dashboard_summary
-from app.services.twilio_calls import place_outbound_call
+from app.services.twilio_calls import TwilioCallError, place_outbound_call
 
 
 class OutboundCallRequest(BaseModel):
@@ -98,14 +98,17 @@ async def place_portal_outbound_call(
         )
 
     base = get_settings().public_api_base_url.rstrip("/")
-    sid = await place_outbound_call(
-        to_number=body.to_number,
-        from_number=agent["phone_number"],
-        voice_url=f"{base}/webhooks/twilio/voice",
-        status_callback_url=f"{base}/webhooks/twilio/status",
-    )
-    if sid is None:
-        raise api_error(502, "call_failed", "Could not place the call. Try again.")
+    try:
+        sid = await place_outbound_call(
+            to_number=body.to_number,
+            from_number=agent["phone_number"],
+            voice_url=f"{base}/webhooks/twilio/voice",
+            status_callback_url=f"{base}/webhooks/twilio/status",
+        )
+    except TwilioCallError as err:
+        raise api_error(400, err.code, err.message)
+    except Exception as exc:
+        raise api_error(502, "call_failed", f"Could not place call: {exc}")
 
     await log_tenant_action(
         user.id,

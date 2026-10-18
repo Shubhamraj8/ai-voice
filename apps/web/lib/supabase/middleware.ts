@@ -11,6 +11,14 @@ import {
 } from "@/lib/auth/paths";
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Fast-path: for public paths other than login pages (e.g. "/", marketing pages),
+  // return immediately without Supabase session checks or remote network calls.
+  if (isPublicPath(pathname) && !isClientLoginPath(pathname) && !isInternalLoginPath(pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -59,13 +67,10 @@ export async function updateSession(request: NextRequest) {
       user = refreshedUser;
     }
   } else {
-    const {
-      data: { user: refreshedUser },
-    } = await supabase.auth.getUser();
-    user = refreshedUser;
+    // If there is no access token, the user is unauthenticated.
+    // Avoid making an expensive network call to Supabase auth API with no token.
+    user = null;
   }
-
-  const { pathname } = request.nextUrl;
 
   if (isClientLoginPath(pathname)) {
     if (user) {

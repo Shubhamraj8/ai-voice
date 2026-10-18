@@ -14,8 +14,14 @@ export function OutboundCallCard() {
   const [error, setError] = useState<string | null>(null);
 
   const onCall = async () => {
-    const to = number.trim();
+    let to = number.trim().replace(/[\s()-]/g, "");
     if (!to) return;
+    if (/^\d{10}$/.test(to)) {
+      to = `+91${to}`;
+    } else if (!to.startsWith("+")) {
+      to = `+${to}`;
+    }
+
     setStatus("calling");
     setError(null);
 
@@ -59,6 +65,9 @@ export function OutboundCallCard() {
     }
   };
 
+  const isTrialError =
+    error?.toLowerCase().includes("trial") || error?.toLowerCase().includes("unverified");
+
   return (
     <div className="rounded-2xl border border-zerqo-line bg-white p-6 shadow-sm">
       <div className="mb-2 flex items-center gap-2 text-zerqo-muted">
@@ -97,13 +106,35 @@ export function OutboundCallCard() {
         </button>
       </div>
 
+      <p className="mt-2 text-xs text-zerqo-muted">
+        Format: <span className="font-mono text-zerqo-ink">+91XXXXXXXXXX</span>. Note: Twilio trial
+        accounts require recipient numbers to be verified first.
+      </p>
+
       {status === "done" ? (
         <p className="mt-3 text-[13px] text-emerald-700">
           Calling now — your phone should ring shortly.
         </p>
       ) : null}
       {status === "error" && error ? (
-        <p className="mt-3 text-[13px] text-red-700">{error}</p>
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50/80 p-3.5 text-[13px] text-red-800">
+          <p className="font-medium">{error}</p>
+          {isTrialError ? (
+            <p className="mt-1.5 text-xs text-red-700">
+              💡 <strong>Twilio Trial restriction:</strong> To receive calls in trial mode, add your
+              phone number to{" "}
+              <a
+                href="https://console.twilio.com/us1/develop/phone-numbers/manage/verified"
+                target="_blank"
+                rel="noreferrer"
+                className="underline font-semibold hover:text-red-900"
+              >
+                Twilio Console → Verified Caller IDs
+              </a>
+              , or upgrade your Twilio account.
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
